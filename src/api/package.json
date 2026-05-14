@@ -1,0 +1,24 @@
+{
+  "name": "apex-api",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/src/functions/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "prestart": "npm run clean && npm run build",
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@azure/identity": "^4.4.1",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.6",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.5.0"
+  }
+}

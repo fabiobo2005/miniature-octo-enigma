@@ -1,0 +1,27 @@
+# Build artifacts
+node_modules/
+dist/
+*.log
+
+# Function App local
+src/api/local.settings.json
+src/api/.azure/
+
+# Azure Developer CLI
+.azure/
+!.azure/deployment-plan.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Env
+.env
+.env.local
+
+# Backups
+*.bak

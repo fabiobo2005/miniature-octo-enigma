@@ -1,0 +1,17 @@
+{
+  "name": "APEX · 90D Recomp",
+  "short_name": "APEX",
+  "description": "Coach digital pessoal de 90 dias — recomposição corporal, treino, alimentação e métricas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1118",
+  "theme_color": "#7c5cff",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["health", "fitness", "lifestyle"]
+}
