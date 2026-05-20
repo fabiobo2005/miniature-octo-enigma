@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { withClient } from '../db';
+import { validate } from '../middleware/validate';
+import { createUserSchema, updateUserSchema } from '../schemas/users.schema';
 
 export const usersRouter = Router();
 
@@ -13,14 +15,13 @@ usersRouter.get('/', async (_req, res, next) => {
   } catch (e) { next(e); }
 });
 
-usersRouter.post('/', async (req, res, next) => {
+usersRouter.post('/', validate(createUserSchema), async (req, res, next) => {
   try {
-    const { name, email, avatar_url, birth_date, height_cm, goal } = req.body || {};
-    if (!name || !String(name).trim()) return res.status(400).json({ error: 'name required' });
+    const { name, email, avatar_url, birth_date, height_cm, goal } = req.body;
     const row = await withClient(async c => (await c.query(
       `INSERT INTO app.user (name, email, avatar_url, birth_date, height_cm, goal)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [String(name).trim(), email || null, avatar_url || null, birth_date || null, height_cm || null, goal || null]
+      [name, email ?? null, avatar_url ?? null, birth_date ?? null, height_cm ?? null, goal ?? null]
     )).rows[0]);
     res.status(201).json(row);
   } catch (e: any) {
@@ -39,9 +40,9 @@ usersRouter.get('/:id', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-usersRouter.put('/:id', async (req, res, next) => {
+usersRouter.put('/:id', validate(updateUserSchema), async (req, res, next) => {
   try {
-    const { name, email, avatar_url, birth_date, height_cm, goal } = req.body || {};
+    const { name, email, avatar_url, birth_date, height_cm, goal } = req.body;
     const row = await withClient(async c => (await c.query(
       `UPDATE app.user SET
          name=COALESCE($2,name), email=COALESCE($3,email), avatar_url=COALESCE($4,avatar_url),

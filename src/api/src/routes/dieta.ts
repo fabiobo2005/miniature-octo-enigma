@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { withClient } from '../db';
+import { validate } from '../middleware/validate';
+import { upsertMealSchema, upsertDietaProfileSchema } from '../schemas/dieta.schema';
 
 export const dietaRouter = Router();
 
@@ -24,12 +26,10 @@ dietaRouter.get('/meals', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-dietaRouter.put('/meals', async (req, res, next) => {
+dietaRouter.put('/meals', validate(upsertMealSchema), async (req, res, next) => {
   try {
     const u = requireUid(req, res); if (!u) return;
-    const { date, meal_id, status, notes } = req.body || {};
-    if (!date || !meal_id || !status) return res.status(400).json({ error: 'date, meal_id, status required' });
-    if (!['done','partial','skipped'].includes(status)) return res.status(400).json({ error: 'invalid status' });
+    const { date, meal_id, status, notes } = req.body;
     const row = await withClient(async c => (await c.query(
       `INSERT INTO dieta.meal_log (user_id, logged_on, meal_id, status, notes)
        VALUES ($1,$2,$3,$4,$5)
@@ -87,10 +87,10 @@ dietaRouter.get('/profile', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-dietaRouter.put('/profile', async (req, res, next) => {
+dietaRouter.put('/profile', validate(upsertDietaProfileSchema), async (req, res, next) => {
   try {
     const u = requireUid(req, res); if (!u) return;
-    const { kcal_target, meals_per_day, plan_source, started_on } = req.body || {};
+    const { kcal_target, meals_per_day, plan_source, started_on } = req.body;
     const row = await withClient(async c => (await c.query(
       `INSERT INTO dieta.profile (user_id, kcal_target, meals_per_day, plan_source, started_on)
        VALUES ($1,$2,COALESCE($3,6),$4,$5)
