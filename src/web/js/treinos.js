@@ -1,5 +1,9 @@
 // ===== treinos.js : Treinos standalone app (multiusuário) =====
-let state = { workouts: [] };
+const CATS = ['Push','Pull','Pernas','Full Body','Cardio','Tênis','Mobilidade','HIIT'];
+const CAT_ICON = {Push:'💪',Pull:'🪢',Pernas:'🦵','Full Body':'🔥',Cardio:'🏃',Tênis:'🎾',Mobilidade:'🧘',HIIT:'⚡'};
+
+let state = { workouts: [], filterCat: null };
+let chWk = null;
 
 async function loadWorkouts(){
   try{
@@ -23,6 +27,8 @@ async function addWorkout(){
     await api('POST','/api/treinos/workouts', body);
     ['wkName','wkDuration','wkNotes'].forEach(id=>$('#'+id).value='');
     $('#wkCategory').value=''; $('#wkIntensity').value='';
+    $$('#catChipsForm .catChip').forEach(b=>b.classList.remove('on'));
+    $$('#intChipsForm .intChip').forEach(b=>b.classList.remove('on'));
     await loadWorkouts();
     toast('Treino registrado ✓');
   }catch(e){ toast('Erro: '+e.message, true); }
@@ -37,27 +43,133 @@ async function deleteWorkout(id){
   }catch(e){ toast('Erro: '+e.message, true); }
 }
 
+function setupChips(){
+  const cats=$('#catChipsForm');
+  if(cats && !cats.dataset.ready){
+    cats.innerHTML = CATS.map(c=>`<button type="button" class="catChip" data-v="${c}">${CAT_ICON[c]} ${c}</button>`).join('');
+    cats.addEventListener('click', e=>{
+      const b=e.target.closest('.catChip'); if(!b)return;
+      const wasOn=b.classList.contains('on');
+      $$('#catChipsForm .catChip').forEach(x=>x.classList.remove('on'));
+      if(!wasOn){ b.classList.add('on'); $('#wkCategory').value=b.dataset.v; }
+      else { $('#wkCategory').value=''; }
+    });
+    cats.dataset.ready='1';
+  }
+  const ints=$('#intChipsForm');
+  if(ints && !ints.dataset.ready){
+    ints.addEventListener('click', e=>{
+      const b=e.target.closest('.intChip'); if(!b)return;
+      const wasOn=b.classList.contains('on');
+      $$('#intChipsForm .intChip').forEach(x=>x.classList.remove('on'));
+      if(!wasOn){ b.classList.add('on'); $('#wkIntensity').value=b.dataset.v; }
+      else { $('#wkIntensity').value=''; }
+    });
+    ints.dataset.ready='1';
+  }
+}
+
+function setFilter(cat){
+  state.filterCat = (state.filterCat===cat) ? null : cat;
+  renderTreinos();
+}
+
 function renderTreinos(){
+  setupChips();
   const today=new Date();
   const wkAgo=new Date(today.getTime()-6*86400000);
-  const recent = (state.workouts||[]).filter(w=>new Date(w.trained_on)>=wkAgo);
+  const lastWkAgo=new Date(today.getTime()-13*86400000);
+  const all=(state.workouts||[]);
+  const recent = all.filter(w=>new Date(w.trained_on)>=wkAgo);
+  const lastWk = all.filter(w=>{const d=new Date(w.trained_on); return d>=lastWkAgo && d<wkAgo});
   $('#wkSessions').textContent = String(recent.length);
   $('#wkMinutes').textContent  = String(recent.reduce((a,b)=>a+(b.duration_min||0),0));
-  const lastW = (state.workouts||[])[0];
+  const lastW = all[0];
   $('#wkLast').textContent = lastW ? fmtDate(lastW.trained_on) : '—';
+  $('#wkHistCount').textContent = `${all.length} treinos · 60d`;
 
-  const catIcon = {Push:'💪',Pull:'🪢',Pernas:'🦵','Full Body':'🔥',Cardio:'🏃',Tênis:'🎾',Mobilidade:'🧘',HIIT:'⚡'};
-  $('#wkList').innerHTML = (state.workouts||[]).length
-    ? state.workouts.map(w=>`
-      <div class="wkRow">
-        <div class="wkIco">${catIcon[w.category]||'🏋️'}</div>
+  // delta vs last week
+  const delta = $('#heroDelta');
+  if(delta){
+    if(lastWk.length>0 || recent.length>0){
+      const d = recent.length - lastWk.length;
+      delta.hidden=false;
+      delta.className='heroDelta '+(d<0?'up':d>0?'down':'flat');
+      delta.textContent = (d>0?'▲ +':d<0?'▼ ':'• ')+Math.abs(d)+' vs sem. ant.';
+    } else delta.hidden=true;
+  }
+
+  // hero metrics
+  const minWk = recent.reduce((a,b)=>a+(b.duration_min||0),0);
+  const avgDur = recent.length ? Math.round(minWk/recent.length) : 0;
+  const intensity = recent.filter(w=>w.intensity==='forte'||w.intensity==='maximo').length;
+  const hm=$('#heroMetrics');
+  if(hm){
+    const items=[
+      `<div class="hm"><span>Média/treino</span><b>${avgDur} min</b></div>`,
+      `<div class="hm"><span>Forte/Máx</span><b>${intensity}</b></div>`,
+      `<div class="hm"><span>Total 60d</span><b>${all.length}</b></div>`
+    ];
+    hm.innerHTML=items.join('');
+  }
+
+  // hero chart - últimos 14 dias por dia
+  const ctx=$('#chWk');
+  if(ctx){
+    if(chWk) chWk.destroy();
+    const days=[]; const counts=[]; const mins=[];
+    for(let i=13;i>=0;i--){
+      const d=new Date(today.getTime()-i*86400000);
+      const ds=d.toISOString().slice(0,10);
+      days.push(fmtDate(ds));
+      const dayWk=all.filter(w=>w.trained_on.slice(0,10)===ds);
+      counts.push(dayWk.length);
+      mins.push(dayWk.reduce((a,b)=>a+(b.duration_min||0),0));
+    }
+    if(all.length===0){
+      ctx.parentElement.innerHTML='<div class="empty mini"><div class="em">📈</div><p>Registre um treino para ver tendência.</p></div>';
+    } else {
+      chWk = new Chart(ctx,{
+        type:'bar',
+        data:{ labels:days,
+          datasets:[{label:'Min', data:mins,
+            backgroundColor:mins.map(m=>m===0?'rgba(221,231,225,.5)':m>=60?'#5fb594':m>=30?'#7BC4A4':'#a8d4be'),
+            borderRadius:4, barPercentage:.9, categoryPercentage:.95}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          animation:{duration:600,easing:'easeOutQuart'},
+          plugins:{legend:{display:false},tooltip:{
+            backgroundColor:'rgba(20,40,30,.92)',padding:8,cornerRadius:8,displayColors:false,
+            callbacks:{label:(c)=>`${c.parsed.y} min · ${counts[c.dataIndex]} treino${counts[c.dataIndex]===1?'':'s'}`}}},
+          scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:10},maxTicksLimit:3}},
+                  x:{grid:{display:false},ticks:{font:{size:9},maxTicksLimit:7}}}}
+      });
+    }
+  }
+
+  // category filter chips
+  const filterEl=$('#catFilter');
+  if(filterEl){
+    const cats = [...new Set(all.map(w=>w.category).filter(Boolean))];
+    filterEl.innerHTML = cats.length ? cats.map(c=>
+      `<button type="button" class="catChip ${state.filterCat===c?'on':''}" onclick="setFilter('${c.replace(/'/g,"\\'")}')">${CAT_ICON[c]||'🏋️'} ${c}</button>`
+    ).join('') : '';
+  }
+
+  // history list (filtered)
+  const list = state.filterCat ? all.filter(w=>w.category===state.filterCat) : all;
+  $('#wkList').innerHTML = list.length
+    ? list.map((w,i)=>`
+      <div class="wkRow fadeUp" style="animation-delay:${Math.min(i,8)*40}ms">
+        <div class="wkIco">${CAT_ICON[w.category]||'🏋️'}</div>
         <div class="wkMeta">
           <b>${w.name} ${w.intensity?`<span class="wkIntense ${w.intensity}">${w.intensity}</span>`:''}</b>
           <span>${fmtDate(w.trained_on)} ${w.category?'· '+w.category:''} ${w.duration_min?'· '+w.duration_min+'min':''}${w.notes?' · '+w.notes:''}</span>
         </div>
         <div class="wkAct"><button onclick="deleteWorkout(${w.id})" title="Remover">✕</button></div>
       </div>`).join('')
-    : `<div class="empty"><div class="em">🏋️</div><p>Nenhum treino registrado ainda.</p></div>`;
+    : (state.filterCat
+        ? `<div class="empty"><div class="em">🔍</div><p>Nenhum treino em "${state.filterCat}".</p></div>`
+        : `<div class="empty"><div class="em">🏋️</div><p>Nenhum treino registrado ainda.</p></div>`);
 }
 
 async function checkTreinosReq(){

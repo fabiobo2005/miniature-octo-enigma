@@ -33,20 +33,29 @@
     </div>
   </div>
 
-  <div class="card">
-    <h2>🍽️ Plano alimentar <span class="sub">Dra. Lorena · 3.153 kcal</span></h2>
-    <p class="small">CRN 46308 · revisão 08/05/2026 · 6 refeições/dia</p>
+  <div class="hero hero-dieta">
+    <div class="heroHead">
+      <p class="lbl">Aderência hoje</p>
+      <span class="heroDelta" id="heroDelta" hidden></span>
+    </div>
+    <div class="big"><span id="discTodayDieta">0</span><small>%</small></div>
+    <div class="heroChartBox"><canvas id="chDisc"></canvas></div>
+    <div class="heroMetrics" id="heroMetrics"></div>
+    <div class="row">
+      <div class="stat"><b id="streakDieta">0d</b><span>sequência</span></div>
+      <div class="stat"><b id="bestDieta">—</b><span>melhor (30d)</span></div>
+    </div>
   </div>
 
   <div class="card">
-    <h2>✅ Hoje <span class="sub" id="discTodayDieta">0%</span></h2>
+    <h2>✅ Hoje <span class="sub" id="todayDoneCount">0/6</span></h2>
     <div class="mealList" id="mealCheckDieta"></div>
   </div>
 
   <div class="card">
-    <h2>📊 Disciplina · últimos 30 dias</h2>
+    <h2>📊 Disciplina · 30 dias</h2>
     <div class="ring">
-      <svg width="80" height="80" viewBox="0 0 80 80">
+      <svg width="72" height="72" viewBox="0 0 80 80">
         <circle cx="40" cy="40" r="34" stroke="var(--surf2)" stroke-width="8" fill="none"/>
         <circle id="ringDisc" cx="40" cy="40" r="34" stroke="url(#gradRing)" stroke-width="8" fill="none"
           stroke-dasharray="213" stroke-dashoffset="213" stroke-linecap="round" transform="rotate(-90 40 40)"/>
@@ -59,11 +68,11 @@
       </div>
     </div>
     <div class="discBar" id="discBar"></div>
-    <div class="chartBox"><canvas id="chDisc"></canvas></div>
   </div>
 
   <div class="card">
-    <h2>📋 Cardápio recomendado</h2>
+    <h2>📋 Cardápio recomendado <span class="sub">Dra. Lorena · 3.153 kcal</span></h2>
+    <div class="catChips" id="mealNavChips"></div>
     <div id="mealMenu"></div>
   </div>
 

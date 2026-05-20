@@ -133,14 +133,62 @@ function todayDisciplineScore(){
   return Math.round(score/MEALS.length*100);
 }
 
+function todayDoneCount(){
+  let done=0;
+  for(const m of MEALS){
+    const st=mealStatusToday(m.id);
+    if(st==='done' || st==='partial') done++;
+  }
+  return done;
+}
+
+function dietaStreak(){
+  const sum = (state.discSummary||[]).slice().sort((a,b)=>b.day.localeCompare(a.day));
+  let streak=0;
+  for(const d of sum){ if(d.score>0) streak++; else break; }
+  return streak;
+}
+
 let chDisc=null;
 function renderDieta(){
   renderMealCheckList('#mealCheckDieta');
-  $('#discTodayDieta').textContent = todayDisciplineScore()+'%';
+  const todayPct = todayDisciplineScore();
+  $('#discTodayDieta').textContent = todayPct;
+  $('#todayDoneCount').textContent = todayDoneCount()+'/'+MEALS.length;
 
   const sum=state.discSummary||[];
   const valid = sum.filter(d=>d.score>0);
   const avg = valid.length ? Math.round(valid.reduce((a,b)=>a+b.score,0)/valid.length) : 0;
+  const best = valid.length ? Math.max(...valid.map(d=>d.score)) : 0;
+
+  // hero metrics + delta
+  const delta = $('#heroDelta');
+  if(delta){
+    if(valid.length>=2){
+      const yesterday = sum.find(d=>{
+        const dt=new Date(d.day); const t=new Date(); t.setDate(t.getDate()-1);
+        return d.day===t.toISOString().slice(0,10);
+      });
+      if(yesterday){
+        const d = todayPct - yesterday.score;
+        delta.hidden=false;
+        delta.className='heroDelta '+(d<0?'up':d>0?'down':'flat');
+        delta.textContent=(d>0?'▲ +':d<0?'▼ ':'• ')+Math.abs(d)+'pp vs ontem';
+      } else delta.hidden=true;
+    } else delta.hidden=true;
+  }
+  const hm=$('#heroMetrics');
+  if(hm){
+    const items=[
+      `<div class="hm"><span>Média 30d</span><b>${avg}%</b></div>`,
+      `<div class="hm"><span>Dias c/ registro</span><b>${valid.length}</b></div>`,
+      `<div class="hm"><span>Melhor dia</span><b>${best}%</b></div>`
+    ];
+    hm.innerHTML=items.join('');
+  }
+  $('#streakDieta').textContent = dietaStreak()+'d';
+  $('#bestDieta').textContent = best ? best+'%' : '—';
+
   $('#discAvg').textContent = avg+'%';
   $('#discSubtitle').textContent = valid.length ? `${valid.length} dias com registro` : 'aguardando dados';
   const ring=$('#ringDisc'); const C=2*Math.PI*34;
@@ -150,29 +198,51 @@ function renderDieta(){
     return `<div class="bar" title="${fmtDate(d.day)}: ${d.score}%"><div class="fill" style="height:${d.score}%"></div></div>`;
   }).join('');
 
+  // hero chart (compact)
   const ctx=$('#chDisc'); if(chDisc) chDisc.destroy();
-  chDisc = new Chart(ctx,{
-    type:'bar',
-    data:{
-      labels:sum.map(d=>fmtDate(d.day)),
-      datasets:[{
-        label:'Aderência (%)', data:sum.map(d=>d.score),
-        backgroundColor:sum.map(d=>d.score>=80?'#5fb594':d.score>=50?'#e6a55a':d.score>0?'#d96b7a':'#dde7e1'),
-        borderRadius:6
-      }]
-    },
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{y:{min:0,max:100,grid:{color:'rgba(0,0,0,.05)'}},x:{ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:10},grid:{display:false}}}}
-  });
+  if(ctx){
+    if(!sum.length){
+      ctx.parentElement.innerHTML='<div class="empty mini"><div class="em">📊</div><p>Marque refeições para ver tendência.</p></div>';
+    } else {
+      chDisc = new Chart(ctx,{
+        type:'bar',
+        data:{
+          labels:sum.map(d=>fmtDate(d.day)),
+          datasets:[{
+            label:'Aderência (%)', data:sum.map(d=>d.score),
+            backgroundColor:sum.map(d=>d.score>=80?'#5fb594':d.score>=50?'#e6a55a':d.score>0?'#d96b7a':'rgba(221,231,225,.6)'),
+            borderRadius:4, barPercentage:.85, categoryPercentage:.95
+          }]
+        },
+        options:{responsive:true,maintainAspectRatio:false,
+          animation:{duration:600,easing:'easeOutQuart'},
+          plugins:{legend:{display:false},tooltip:{
+            backgroundColor:'rgba(20,40,30,.92)',padding:8,cornerRadius:8,displayColors:false,
+            callbacks:{ label:(c)=>`${c.parsed.y}%` }
+          }},
+          scales:{
+            y:{min:0,max:100,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:10},maxTicksLimit:3}},
+            x:{ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:6,font:{size:10}},grid:{display:false}}
+          }}
+      });
+    }
+  }
 
-  $('#mealMenu').innerHTML = MEALS.map(m=>`
-    <div class="dietMeal">
-      <div class="hdr"><span class="em">${m.emoji}</span><b>${m.name}</b><span class="tm">${m.time}</span></div>
-      <ul>${m.items.map(i=>`<li>${i}</li>`).join('')}</ul>
-      ${m.subs.map(s=>`<details><summary>🔁 ${s[0]}</summary><ul><li>${s[1]}</li></ul></details>`).join('')}
-      ${m.tip ? `<div class="tip">⚠ ${m.tip}</div>` : ''}
-    </div>
+  // navigation chips for meals
+  $('#mealNavChips').innerHTML = MEALS.map(m=>
+    `<button type="button" class="catChip" onclick="document.getElementById('meal-${m.id}').scrollIntoView({behavior:'smooth',block:'start'})">${m.emoji} ${m.name.split(' ')[0]}</button>`
+  ).join('');
+
+  // collapsible meals
+  $('#mealMenu').innerHTML = MEALS.map((m,i)=>`
+    <details class="dietMeal fadeUp" id="meal-${m.id}" style="animation-delay:${i*40}ms"${i===0?' open':''}>
+      <summary class="hdr"><span class="em">${m.emoji}</span><b>${m.name}</b><span class="tm">${m.time}</span></summary>
+      <div class="dietBody">
+        <ul>${m.items.map(it=>`<li>${it}</li>`).join('')}</ul>
+        ${m.subs.map(s=>`<details class="subs"><summary>🔁 ${s[0]}</summary><ul><li>${s[1]}</li></ul></details>`).join('')}
+        ${m.tip ? `<div class="tip">⚠ ${m.tip}</div>` : ''}
+      </div>
+    </details>
   `).join('');
 }
 

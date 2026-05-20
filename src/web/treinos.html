@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="stylesheet" href="/css/app.css">
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -32,9 +33,14 @@
     </div>
   </div>
 
-  <div class="hero">
-    <p class="lbl">Esta semana</p>
+  <div class="hero hero-treinos">
+    <div class="heroHead">
+      <p class="lbl">Esta semana</p>
+      <span class="heroDelta" id="heroDelta" hidden></span>
+    </div>
     <div class="big"><span id="wkSessions">0</span><small> treinos</small></div>
+    <div class="heroChartBox"><canvas id="chWk"></canvas></div>
+    <div class="heroMetrics" id="heroMetrics"></div>
     <div class="row">
       <div class="stat"><b id="wkMinutes">0</b><span>minutos</span></div>
       <div class="stat"><b id="wkLast">—</b><span>último</span></div>
@@ -45,34 +51,29 @@
     <h2>🆕 Registrar treino</h2>
     <div class="row2">
       <div class="field"><label>Data</label><input type="date" id="wkDate"></div>
-      <div class="field"><label>Duração (min)</label><input type="number" id="wkDuration" step="1" placeholder="60"></div>
+      <div class="field"><label>Duração (min)</label><input type="number" id="wkDuration" inputmode="numeric" step="1" placeholder="60"></div>
     </div>
     <div class="field"><label>Nome</label><input type="text" id="wkName" placeholder="Ex: Push A · Peito e ombro"></div>
-    <div class="row2">
-      <div class="field"><label>Categoria</label>
-        <select id="wkCategory">
-          <option value="">—</option>
-          <option>Push</option><option>Pull</option><option>Pernas</option>
-          <option>Full Body</option><option>Cardio</option><option>Tênis</option>
-          <option>Mobilidade</option><option>HIIT</option>
-        </select>
-      </div>
-      <div class="field"><label>Intensidade</label>
-        <select id="wkIntensity">
-          <option value="">—</option>
-          <option value="leve">Leve</option>
-          <option value="moderado">Moderado</option>
-          <option value="forte">Forte</option>
-          <option value="maximo">Máximo</option>
-        </select>
+    <div class="field"><label>Categoria</label>
+      <div class="catChips" id="catChipsForm"></div>
+    </div>
+    <div class="field"><label>Intensidade</label>
+      <div class="intChips" id="intChipsForm">
+        <button type="button" class="intChip" data-v="leve">Leve</button>
+        <button type="button" class="intChip" data-v="moderado">Moderado</button>
+        <button type="button" class="intChip" data-v="forte">Forte</button>
+        <button type="button" class="intChip" data-v="maximo">Máximo</button>
       </div>
     </div>
+    <input type="hidden" id="wkCategory">
+    <input type="hidden" id="wkIntensity">
     <div class="field"><label>Notas (opcional)</label><textarea id="wkNotes" rows="2" placeholder="Cargas, RPE, sensação..."></textarea></div>
     <button class="btn full" onclick="addWorkout()">Registrar treino</button>
   </div>
 
   <div class="card">
-    <h2>📜 Histórico (60 dias)</h2>
+    <h2>📜 Histórico <span class="sub" id="wkHistCount">0 treinos · 60d</span></h2>
+    <div class="catChips" id="catFilter"></div>
     <div id="wkList"></div>
   </div>
 
