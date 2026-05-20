@@ -27,7 +27,7 @@
       <button class="iconBtn" onclick="logoutUser()" title="Trocar usuário" aria-label="Trocar usuário">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
       </button>
-      <button class="iconBtn" onclick="reqNotifPermission()" title="Notificações">
+      <button class="iconBtn" onclick="if(typeof reqNotifPermission==='function')reqNotifPermission()" title="Notificações">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
       </button>
       <button class="iconBtn" onclick="toggleTheme()" title="Tema">
@@ -101,7 +101,7 @@
         <b>Notificações</b>
         <span id="notifState">Verifique o estado abaixo</span>
       </div>
-      <button class="btn ghost" onclick="reqNotifPermission()">Ativar</button>
+      <button class="btn ghost" onclick="if(typeof reqNotifPermission==='function')reqNotifPermission()">Ativar</button>
     </div>
     <p class="small" style="margin-top:10px">As notificações aparecem nos horários cadastrados em cada suplemento (apenas com o app aberto ou instalado como PWA). Para iOS, adicione à tela inicial para receber notificações nativas.</p>
   </div>
