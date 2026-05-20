@@ -5,6 +5,40 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ---
 
+## v8.4 · 2026-05-20 · Backend: validação semântica com zod
+
+### Backend
+- Dependência nova: `zod ^3` em `src/api/package.json`.
+- Novo `src/api/src/middleware/validate.ts`: factory `validate(schema, source)` que
+  retorna 400 com lista estruturada de erros (`{ error: 'validation_failed', errors: [...] }`).
+- Novos schemas em `src/api/src/schemas/`:
+  - `common.ts` (uuid, isoDate, intensityEnum, mealStatusEnum, goalEnum, etc.)
+  - `users.schema.ts` (create/update strict, valida email, height_cm > 0, goal enum)
+  - `saude.schema.ts` (upsertEvol, createSupplement, updateSupplement, logSupplement)
+  - `dieta.schema.ts` (upsertMeal, upsertDietaProfile)
+  - `treinos.schema.ts` (createWorkout, updateWorkout)
+- Aplicado `validate(schema)` em todas as rotas POST/PUT relevantes.
+- Removidas validações ad-hoc duplicadas (intensity enum, status enum, name required).
+
+### Smoke tests pós-deploy
+| Caso | Resultado |
+|---|---|
+| `POST /api/users` email inválido | 400 ✓ |
+| `POST /api/users` goal fora do enum | 400 ✓ |
+| `POST /api/users` height_cm negativo | 400 ✓ |
+| `POST /api/users` name vazio | 400 ✓ |
+| `POST /api/users` válido | 201 ✓ |
+| `POST /api/treinos/workouts` intensity ULTRA | 400 ✓ |
+| `POST /api/treinos/workouts` data "amanha" | 400 ✓ |
+| `POST /api/treinos/workouts` válido | 200 ✓ |
+| `PUT /api/dieta/meals` status "comeu" | 400 ✓ |
+
+### Notas
+- Issue GitHub #3 fechada por este release.
+- Próximo P0 estratégico: #6 (auth) — middleware `validate` será reutilizado para JWT.
+
+---
+
 ## v8.3.1 · 2026-05-20 · Hardening: guard typeof em chamadas globais (saude)
 
 ### Frontend

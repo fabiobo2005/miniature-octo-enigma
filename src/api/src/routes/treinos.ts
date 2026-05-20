@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { withClient } from '../db';
+import { validate } from '../middleware/validate';
+import { createWorkoutSchema, updateWorkoutSchema } from '../schemas/treinos.schema';
 
 export const treinosRouter = Router();
 
@@ -24,14 +26,10 @@ treinosRouter.get('/workouts', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-treinosRouter.post('/workouts', async (req, res, next) => {
+treinosRouter.post('/workouts', validate(createWorkoutSchema), async (req, res, next) => {
   try {
     const u = requireUid(req, res); if (!u) return;
-    const { trained_on, name, category, duration_min, intensity, notes } = req.body || {};
-    if (!trained_on || !name) return res.status(400).json({ error: 'trained_on and name required' });
-    if (intensity && !['leve','moderado','forte','maximo'].includes(intensity)) {
-      return res.status(400).json({ error: 'invalid intensity' });
-    }
+    const { trained_on, name, category, duration_min, intensity, notes } = req.body;
     const row = await withClient(async c => (await c.query(
       `INSERT INTO treinos.workout_log (user_id, trained_on, name, category, duration_min, intensity, notes)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
@@ -41,10 +39,10 @@ treinosRouter.post('/workouts', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-treinosRouter.put('/workouts/:id', async (req, res, next) => {
+treinosRouter.put('/workouts/:id', validate(updateWorkoutSchema), async (req, res, next) => {
   try {
     const u = requireUid(req, res); if (!u) return;
-    const { trained_on, name, category, duration_min, intensity, notes } = req.body || {};
+    const { trained_on, name, category, duration_min, intensity, notes } = req.body;
     const row = await withClient(async c => (await c.query(
       `UPDATE treinos.workout_log SET
          trained_on=COALESCE($3,trained_on),

@@ -1,5 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { withClient } from '../db';
+import { validate } from '../middleware/validate';
+import {
+  upsertEvolSchema,
+  createSupplementSchema,
+  updateSupplementSchema,
+  logSupplementSchema,
+} from '../schemas/saude.schema';
 
 export const saudeRouter = Router();
 
@@ -28,8 +35,7 @@ saudeRouter.get('/evol', async (req, res, next) => {
 const upsertEvol = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const u = requireUid(req, res); if (!u) return;
-    const body = req.body || {};
-    if (!body.d) return res.status(400).json({ error: 'missing field: d (measured_on)' });
+    const body = req.body;
     const row = await withClient(async c => (await c.query(
       `INSERT INTO saude.evolution
         (user_id, measured_on, peso, bf, mm, visc, agua, mskel, gsub, osso, prot, tmb, idade_corpo)
@@ -49,8 +55,8 @@ const upsertEvol = async (req: Request, res: Response, next: NextFunction) => {
     res.json(row);
   } catch (e) { next(e); }
 };
-saudeRouter.put('/evol', upsertEvol);
-saudeRouter.post('/evol', upsertEvol);
+saudeRouter.put('/evol', validate(upsertEvolSchema), upsertEvol);
+saudeRouter.post('/evol', validate(upsertEvolSchema), upsertEvol);
 
 saudeRouter.delete('/evol/:date', async (req, res, next) => {
   try {
@@ -75,11 +81,10 @@ saudeRouter.get('/supplements', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-saudeRouter.post('/supplements', async (req, res, next) => {
+saudeRouter.post('/supplements', validate(createSupplementSchema), async (req, res, next) => {
   try {
     const u = requireUid(req, res); if (!u) return;
-    const { name, dose, schedule, color, icon, notes } = req.body || {};
-    if (!name) return res.status(400).json({ error: 'name required' });
+    const { name, dose, schedule, color, icon, notes } = req.body;
     const row = await withClient(async c => (await c.query(
       `INSERT INTO saude.supplement (user_id, name, dose, schedule, color, icon, notes)
        VALUES ($1,$2,$3,$4,COALESCE($5,'#7BC4A4'),COALESCE($6,'💊'),$7) RETURNING *`,
@@ -89,10 +94,10 @@ saudeRouter.post('/supplements', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-saudeRouter.put('/supplements/:id', async (req, res, next) => {
+saudeRouter.put('/supplements/:id', validate(updateSupplementSchema), async (req, res, next) => {
   try {
     const u = requireUid(req, res); if (!u) return;
-    const { name, dose, schedule, color, icon, notes, active } = req.body || {};
+    const { name, dose, schedule, color, icon, notes, active } = req.body;
     const row = await withClient(async c => (await c.query(
       `UPDATE saude.supplement SET
          name=COALESCE($3,name), dose=COALESCE($4,dose), schedule=COALESCE($5,schedule),
@@ -114,12 +119,11 @@ saudeRouter.delete('/supplements/:id', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-saudeRouter.post('/supplements/:id/log', async (req, res, next) => {
+saudeRouter.post('/supplements/:id/log', validate(logSupplementSchema), async (req, res, next) => {
   try {
     const u = requireUid(req, res); if (!u) return;
-    const { date, scheduled_time, status } = req.body || {};
+    const { date, scheduled_time, status } = req.body;
     const row = await withClient(async c => {
-      // valida ownership
       const own = (await c.query('SELECT 1 FROM saude.supplement WHERE id=$1 AND user_id=$2', [req.params.id, u])).rowCount;
       if (!own) return null;
       return (await c.query(
