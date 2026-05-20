@@ -5,6 +5,47 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ---
 
+## v8.6 · 2026-05-20 · Dieta + Treinos: UI mobile-first (paridade com Saúde)
+
+### Frontend — Dieta
+- **`src/web/dieta.html`**: card "Plano alimentar" removido; novo **hero** com aderência hoje
+  (big %), delta vs ontem (▲/▼ pp), gráfico inline 30d, mini-cards (Média 30d / Dias / Melhor),
+  e stats (sequência / melhor 30d).
+- **Card "Hoje"** com contador `n/6` no subtítulo.
+- **Cardápio recomendado**: refeições agora em `<details>` com summary clicável,
+  primeira aberta por padrão. Subs também colapsáveis. Adicionada **barra de chips**
+  para navegação rápida entre refeições (scroll-into-view smooth).
+- **`src/web/js/dieta.js`**: `dietaStreak()`, hero delta vs ontem, hero metrics,
+  chart compacto inline (animação 600ms, tooltips estilizados), ID `meal-${id}` em
+  cada `<details>`, animation-delay stagger.
+
+### Frontend — Treinos
+- **`src/web/treinos.html`**: Chart.js incluído. Hero ampliado com chart inline (14d),
+  delta vs semana anterior, mini-cards (Média/treino · Forte+Máx · Total 60d).
+- **Form de registro**: selects de Categoria e Intensidade substituídos por **chips**
+  clicáveis (categoria com emoji + nome; intensidade com cores semânticas — leve verde,
+  moderado âmbar, forte coral, máximo escuro). Hidden inputs sincronizados.
+- **Histórico**: subtítulo dinâmico (`X treinos · 60d`); barra de **filtro por categoria**
+  baseada nos dados existentes (toggle); empty state contextual quando filtro vazio;
+  cards com fadeUp stagger (clamp em 8 para listas longas).
+- **`src/web/js/treinos.js`**: refatorado em torno de `CATS`/`CAT_ICON` constantes,
+  `setupChips()` idempotente, `setFilter()`, agregações por dia para o chart,
+  delta vs janela de 7d anterior.
+
+### Frontend — CSS (`app.css`)
+- **`.dietMeal`** reescrito como `<details>` clicável com chevron animado,
+  hover sutil, header com badge de horário em pill.
+- Nova seção **CATEGORY / INTENSITY CHIPS**: `.catChips`/`.catChip` (rounded pills, on-state com pri-bg);
+  `.intChips`/`.intChip` (cores semânticas por intensidade no estado `.on`).
+- Animations e media query `<=480px` herdadas da v8.5 — funcionam para os 3 módulos.
+
+### Notas
+- Sem mudanças de schema, API ou auth.
+- Service Worker `apex-v8` inalterado — usuário precisa Ctrl+Shift+R uma vez para
+  invalidar `dieta.html`/`treinos.html`/`js/dieta.js`/`js/treinos.js`/`css/app.css`.
+
+---
+
 ## v8.5 · 2026-05-20 · Saúde: UI mobile-first (hero combinado, time chips, animações)
 
 ### Frontend

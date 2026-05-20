@@ -147,16 +147,27 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .sbtn.on.skipped{background:rgba(217,107,122,.15);color:var(--err);border-color:var(--err)}
 
 /* ============ DIET DETAILS ============ */
-.dietMeal{background:var(--surf2);border-radius:14px;padding:14px;margin:10px 0;border:1px solid var(--line)}
-.dietMeal .hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.dietMeal{background:var(--surf2);border-radius:14px;padding:0;margin:10px 0;border:1px solid var(--line);overflow:hidden;transition:.2s}
+.dietMeal[open]{box-shadow:0 4px 12px rgba(0,0,0,.04)}
+.dietMeal > summary.hdr{display:flex;align-items:center;gap:10px;padding:14px;cursor:pointer;list-style:none;
+  user-select:none;transition:background .15s}
+.dietMeal > summary.hdr::-webkit-details-marker{display:none}
+.dietMeal > summary.hdr:hover{background:rgba(123,196,164,.05)}
+.dietMeal > summary.hdr::after{content:"›";margin-left:auto;font-size:22px;color:var(--mut);
+  transition:transform .25s;line-height:.6;font-weight:300}
+.dietMeal[open] > summary.hdr::after{transform:rotate(90deg)}
 .dietMeal .hdr .em{font-size:22px}
 .dietMeal .hdr b{flex:1;font-weight:700;font-size:15px}
-.dietMeal .hdr .tm{font-size:12px;color:var(--mut);font-weight:600}
+.dietMeal .hdr .tm{font-size:12px;color:var(--mut);font-weight:600;background:var(--surf);padding:3px 8px;border-radius:99px}
+.dietMeal .dietBody{padding:0 14px 14px}
 .dietMeal ul{margin:6px 0;padding-left:20px;font-size:13px;color:var(--txt)}
 .dietMeal ul li{margin:3px 0}
-.dietMeal details{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
-.dietMeal summary{cursor:pointer;font-size:12px;color:var(--acc);font-weight:600;padding:4px 0}
-.dietMeal details ul{font-size:12px;color:var(--mut);margin-top:6px}
+.dietMeal details.subs{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.dietMeal details.subs > summary{cursor:pointer;font-size:12px;color:var(--acc);font-weight:600;padding:4px 0;list-style:none}
+.dietMeal details.subs > summary::-webkit-details-marker{display:none}
+.dietMeal details.subs > summary::before{content:"▸ ";transition:.2s;display:inline-block}
+.dietMeal details.subs[open] > summary::before{transform:rotate(90deg)}
+.dietMeal details.subs ul{font-size:12px;color:var(--mut);margin-top:6px}
 .dietMeal .tip{margin-top:10px;font-size:12px;color:var(--warn);font-style:italic;background:rgba(230,165,90,.08);padding:8px 10px;border-radius:8px;border-left:3px solid var(--warn)}
 
 /* ============ SUPPLEMENT ============ */
@@ -277,6 +288,24 @@ body > .card:nth-of-type(5),body > .hero:nth-of-type(5){animation-delay:.26s}
   .modal{padding:18px 18px calc(18px + var(--safe-bot))}
   .supItem{padding:10px}
 }
+
+/* ============ CATEGORY / INTENSITY CHIPS ============ */
+.catChips{display:flex;flex-wrap:wrap;gap:6px;margin:0 -2px 10px;padding:2px 0}
+.catChips:empty{display:none}
+.catChip{display:inline-flex;align-items:center;gap:5px;background:var(--surf2);
+  border:1px solid var(--line);color:var(--txt);padding:7px 12px;border-radius:99px;
+  font-size:12px;font-weight:600;cursor:pointer;transition:.18s;font-family:inherit;white-space:nowrap}
+.catChip:hover{background:var(--surf);border-color:var(--pri)}
+.catChip.on{background:var(--pri-bg);border-color:var(--pri);color:var(--pri-d)}
+.intChips{display:flex;gap:6px;flex-wrap:wrap}
+.intChip{flex:1;min-width:70px;background:var(--surf2);border:1px solid var(--line);
+  color:var(--txt);padding:10px 8px;border-radius:10px;font-size:13px;font-weight:600;
+  cursor:pointer;transition:.18s;font-family:inherit}
+.intChip:hover{border-color:var(--pri)}
+.intChip[data-v=leve].on{background:#dde7e1;color:#3f7058;border-color:#a8d4be}
+.intChip[data-v=moderado].on{background:#fef3e3;color:#a36818;border-color:#e6a55a}
+.intChip[data-v=forte].on{background:#fde4e7;color:#a3454f;border-color:#d96b7a}
+.intChip[data-v=maximo].on{background:#5d2530;color:#fff;border-color:#5d2530}
 
 /* ============ MODAL ============ */
 .scrim{position:fixed;inset:0;background:rgba(20,40,30,.45);z-index:80;
