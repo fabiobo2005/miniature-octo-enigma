@@ -1,6 +1,8 @@
 // ===== saude.js : Saúde standalone app (multiusuário) =====
 
+const SUP_ICON = '💊';
 let state = { evol:[], supps:[], supLog:[], discSummary:[] };
+let supTimes = []; // chips state for modal
 
 // ----- evolution -----
 async function loadEvol(){
@@ -39,7 +41,7 @@ function renderWeightChart(){
   const data=[...state.evol].reverse().filter(r=>r.peso);
   if(chWeight) chWeight.destroy();
   if(!data.length){
-    ctx.parentElement.innerHTML='<div class="empty"><div class="em">📊</div><p>Sem medições ainda. Registre acima.</p></div>';
+    ctx.parentElement.innerHTML='<div class="empty mini"><div class="em">📊</div><p>Sem medições ainda. Registre abaixo.</p></div>';
     return;
   }
   chWeight = new Chart(ctx,{
@@ -49,13 +51,29 @@ function renderWeightChart(){
       datasets:[{
         label:'Peso (kg)',
         data:data.map(r=>parseFloat(r.peso)),
-        borderColor:'#5fb594', backgroundColor:'rgba(95,181,148,.15)',
-        tension:.35, fill:true, pointRadius:3, pointBackgroundColor:'#5fb594'
+        borderColor:'#3f9377',
+        backgroundColor:(c)=>{
+          const ch=c.chart, {ctx:cx, chartArea}=ch;
+          if(!chartArea) return 'rgba(95,181,148,.15)';
+          const g=cx.createLinearGradient(0,chartArea.top,0,chartArea.bottom);
+          g.addColorStop(0,'rgba(95,181,148,.35)');
+          g.addColorStop(1,'rgba(95,181,148,0)');
+          return g;
+        },
+        tension:.4, fill:true, pointRadius:2.5, pointHoverRadius:5,
+        pointBackgroundColor:'#3f9377', borderWidth:2.5
       }]
     },
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:false,grid:{color:'rgba(0,0,0,.05)'}},x:{grid:{display:false}}}}
+      animation:{duration:600, easing:'easeOutQuart'},
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'rgba(20,40,30,.92)', padding:8, cornerRadius:8, displayColors:false,
+        callbacks:{ label:(c)=>`${c.parsed.y.toFixed(1)} kg` }
+      }},
+      scales:{
+        y:{beginAtZero:false,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:10},maxTicksLimit:5}},
+        x:{grid:{display:false},ticks:{font:{size:10},maxTicksLimit:6}}
+      }}
   });
 }
 
@@ -68,7 +86,6 @@ async function loadSupps(){
   }catch(e){console.error(e)}
 }
 async function loadDietaSummary(){
-  // for streak only
   try{ state.discSummary = await api('GET','/api/dieta/meals/summary?days=30'); renderSaude(); }
   catch(e){ /* dieta module optional */ }
 }
@@ -87,8 +104,31 @@ async function logSupp(supId, time){
 }
 
 function renderSaude(){
-  const last = (state.evol||[])[0];
-  $('#todayWeight').textContent = last ? parseFloat(last.peso).toFixed(1) : '—';
+  const evol = state.evol || [];
+  const last = evol[0];
+  const first = evol[evol.length-1];
+  $('#todayWeight').textContent = last && last.peso ? parseFloat(last.peso).toFixed(1) : '—';
+
+  // hero delta + métricas
+  const delta = $('#heroDelta');
+  if(delta){
+    if(last && first && last.id!==first.id && last.peso && first.peso){
+      const d = parseFloat(last.peso) - parseFloat(first.peso);
+      delta.hidden = false;
+      delta.className = 'heroDelta '+(d<0?'down':d>0?'up':'flat');
+      delta.textContent = (d>0?'▲ +':d<0?'▼ ':'• ')+Math.abs(d).toFixed(1)+' kg';
+    } else delta.hidden = true;
+  }
+  const hm = $('#heroMetrics');
+  if(hm){
+    const items = [];
+    if(last?.bf) items.push(`<div class="hm"><span>% Gordura</span><b>${parseFloat(last.bf).toFixed(1)}%</b></div>`);
+    if(last?.mm) items.push(`<div class="hm"><span>Massa Musc.</span><b>${parseFloat(last.mm).toFixed(1)} kg</b></div>`);
+    if(last?.agua) items.push(`<div class="hm"><span>% Água</span><b>${parseFloat(last.agua).toFixed(1)}%</b></div>`);
+    if(last?.tmb) items.push(`<div class="hm"><span>TMB</span><b>${last.tmb} kcal</b></div>`);
+    hm.innerHTML = items.slice(0,3).join('');
+  }
+
   const t=todayStr();
   const taken = (state.supLog||[]).filter(l=>l.taken_on.slice(0,10)===t && l.status==='taken').length;
   $('#todaySupps').textContent = String(taken);
@@ -111,18 +151,18 @@ function renderSaude(){
   }
   upcoming.sort((a,b)=>a.delta-b.delta);
   const next3 = upcoming.filter(u=>!u.taken).slice(0,4);
-  $('#nextSupps').innerHTML = next3.length ? `<div class="supList">${next3.map(u=>`
-    <div class="supItem">
-      <div class="pill" style="background:${u.s.color||'#7BC4A4'}">${u.s.icon||'💊'}</div>
+  $('#nextSupps').innerHTML = next3.length ? `<div class="supList">${next3.map((u,i)=>`
+    <div class="supItem fadeUp" style="animation-delay:${i*60}ms">
+      <div class="pill" style="background:${u.s.color||'#7BC4A4'}">${SUP_ICON}</div>
       <div class="meta"><b>${u.s.name}</b><span>${u.s.dose||''} · ${u.tm} ${u.delta<60?`(em ${u.delta}min)`:''}</span></div>
       <div class="actions"><button onclick="logSupp(${u.s.id},'${u.tm}')" title="Marcar tomado" style="color:var(--pri-d)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button></div>
     </div>`).join('')}</div>`
     : '<div class="empty"><div class="em">🎉</div><p>Tudo em dia por hoje!</p></div>';
 
-  $('#supList').innerHTML = state.supps.map(s=>{
+  $('#supList').innerHTML = state.supps.map((s,i)=>{
     const times = (s.schedule||'').split(',').map(t=>t.trim()).filter(Boolean);
-    return `<div class="supItem">
-      <div class="pill" style="background:${s.color||'#7BC4A4'}">${s.icon||'💊'}</div>
+    return `<div class="supItem fadeUp" style="animation-delay:${i*50}ms">
+      <div class="pill" style="background:${s.color||'#7BC4A4'}">${SUP_ICON}</div>
       <div class="meta">
         <b>${s.name}</b><span>${s.dose||''}</span>
         <div class="schedTimes">${times.map(t=>{
@@ -141,7 +181,7 @@ function renderSaude(){
         const s=state.supps.find(x=>x.id===l.supplement_id);
         if(!s) return '';
         return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px">
-          <span>${s.icon} <b>${s.name}</b> <span class="small">${l.scheduled_time||''}</span></span>
+          <span>${SUP_ICON} <b>${s.name}</b> <span class="small">${l.scheduled_time||''}</span></span>
           <span class="small">${new Date(l.taken_at).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
         </div>`;
       }).join('')
@@ -158,21 +198,47 @@ function renderSaude(){
   }
 }
 
+// ----- time chips (modal) -----
+function renderTimeChips(){
+  supTimes = [...new Set(supTimes)].sort();
+  const wrap = $('#timeChips');
+  if(!wrap) return;
+  wrap.innerHTML = supTimes.length
+    ? supTimes.map(t=>`<button type="button" class="timeChip" onclick="removeTimeChip('${t}')" title="Remover ${t}">${t} <span class="chipX">×</span></button>`).join('')
+    : '<span class="chipsHint">Nenhum horário ainda — adicione abaixo.</span>';
+  $('#supSchedule').value = supTimes.join(',');
+}
+function addTimeChip(){
+  const inp=$('#timeNew');
+  const v=(inp.value||'').trim();
+  if(!v){toast('Escolha um horário primeiro',true); return}
+  if(supTimes.includes(v)){toast('Esse horário já está na lista',true); inp.value=''; return}
+  supTimes.push(v);
+  inp.value='';
+  renderTimeChips();
+}
+function removeTimeChip(t){
+  supTimes = supTimes.filter(x=>x!==t);
+  renderTimeChips();
+}
+
 // ----- modal -----
 function openSupModal(){
   $('#supModalTitle').textContent='Novo suplemento';
   $('#supId').value=''; $('#supName').value=''; $('#supDose').value='';
-  $('#supSchedule').value=''; $('#supNotes').value='';
-  $('#supIcon').value='💊'; $('#supColor').value='#7BC4A4';
+  $('#supNotes').value=''; $('#supColor').value='#7BC4A4';
+  $('#timeNew').value=''; supTimes=[]; renderTimeChips();
   $('#supDeleteBtn').hidden=true;
   $('#scrim').classList.add('open'); $('#supModal').classList.add('open');
+  setTimeout(()=>$('#supName').focus(), 280);
 }
 function editSupp(id){
   const s=state.supps.find(x=>x.id===id); if(!s)return;
   $('#supModalTitle').textContent='Editar suplemento';
   $('#supId').value=s.id; $('#supName').value=s.name; $('#supDose').value=s.dose||'';
-  $('#supSchedule').value=s.schedule||''; $('#supNotes').value=s.notes||'';
-  $('#supIcon').value=s.icon||'💊'; $('#supColor').value=s.color||'#7BC4A4';
+  $('#supNotes').value=s.notes||''; $('#supColor').value=s.color||'#7BC4A4';
+  supTimes = (s.schedule||'').split(',').map(t=>t.trim()).filter(Boolean);
+  $('#timeNew').value=''; renderTimeChips();
   $('#supDeleteBtn').hidden=false;
   $('#scrim').classList.add('open'); $('#supModal').classList.add('open');
 }
@@ -181,8 +247,8 @@ async function saveSup(){
   const body={
     name:$('#supName').value.trim(),
     dose:$('#supDose').value.trim(),
-    schedule:$('#supSchedule').value.trim(),
-    icon:$('#supIcon').value.trim()||'💊',
+    schedule: supTimes.join(','),
+    icon: SUP_ICON,
     color:$('#supColor').value,
     notes:$('#supNotes').value.trim()
   };

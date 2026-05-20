@@ -5,6 +5,45 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ---
 
+## v8.5 · 2026-05-20 · Saúde: UI mobile-first (hero combinado, time chips, animações)
+
+### Frontend
+- **`src/web/saude.html` reescrita**:
+  - Hero "Peso Atual" combinado: agora inclui gráfico inline (canvas compacto ~84px),
+    delta de variação total (`▲/▼ X.X kg` colorido) e mini-cards de métricas
+    (BF%, MM, Água, TMB) extraídas da última medição.
+  - Card "Evolução do peso" separado foi removido — tudo no hero.
+  - "Nova medição" sem `<details>` opcional: todos os 12 campos visíveis na tela
+    (peso, %GC, MM, %água, % músc esq, % gord sub, % osso, % proteína, gord visc, TMB, idade).
+  - Modal de suplemento: campo de ícone removido (fixo 💊). Seletor de horário substituído
+    por **chips interativos**: `<input type="time">` + botão "+ Adicionar horário",
+    chips clicáveis removem o horário; hidden input `#supSchedule` sincronizado em CSV.
+- **`src/web/js/saude.js`**:
+  - Constante `SUP_ICON = '💊'` fixa.
+  - `renderSaude()` agora calcula delta vs primeira medição e popula `#heroDelta`/`#heroMetrics`.
+  - `renderWeightChart()` adaptado para hero: gradient fill, pointRadius 2.5,
+    tooltips compactos, animação 600ms.
+  - Novas funções `addTimeChip()`, `removeTimeChip(t)`, `renderTimeChips()` mantendo
+    estado em array `supTimes` ordenado e único.
+  - `openSupModal()`/`editSupp()`/`saveSup()` adaptados (sem `#supIcon`).
+- **`src/web/css/app.css`**:
+  - Seção HERO SAUDE: `.heroHead`, `.heroDelta` (up/down), `.heroChartBox`, `.heroMetrics .hm`.
+  - Seção TIME CHIPS: `.timeChips`, `.timeChip` com hover scale + cores, `.timeAdd`,
+    `.btn-sm`, `.colorInput`.
+  - Seção ANIMATIONS: keyframes `cardIn`/`slideIn`/`chipIn`/`fadeUp`; stagger automático
+    `body > .card:nth-of-type(n)` com delay 0.02s→0.26s; transições suaves em
+    `.tab`/`.btn`/`.iconBtn` com active-scale.
+  - Media query `<=480px`: hero menor, cards mais compactos, modal padding reduzido,
+    inputs com font-size 14px para evitar zoom no iOS.
+
+### Notas
+- Service Worker `apex-v8` continua o mesmo — usuário precisa Ctrl+Shift+R uma vez
+  para invalidar o cache de `saude.html`/`js/saude.js`/`css/app.css`.
+- Compatibilidade: dados antigos com `icon` salvo em DB continuam funcionando
+  (campo ignorado na UI, mantido no banco).
+
+---
+
 ## v8.4 · 2026-05-20 · Backend: validação semântica com zod
 
 ### Backend

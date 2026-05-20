@@ -213,6 +213,71 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .discBar .bar:hover{opacity:.85}
 .discBar .bar .fill{position:absolute;bottom:0;left:0;right:0;background:var(--grad);border-radius:3px;transition:height .5s}
 
+/* ============ HERO SAUDE (combined) ============ */
+.heroHead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;position:relative;z-index:1}
+.heroDelta{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;
+  background:var(--surf);color:var(--mut);letter-spacing:.3px;
+  animation:chipIn .3s ease-out}
+.heroDelta.up{color:#b85060;background:rgba(217,107,122,.16)}
+.heroDelta.down{color:var(--pri-d);background:var(--pri-bg)}
+.heroChartBox{position:relative;height:84px;margin:10px -4px 12px;z-index:1}
+.heroMetrics{display:flex;gap:10px;flex-wrap:wrap;position:relative;z-index:1}
+.heroMetrics .hm{flex:1;min-width:90px;background:rgba(255,255,255,.55);
+  border-radius:12px;padding:8px 10px;backdrop-filter:blur(4px)}
+.heroMetrics .hm span{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.heroMetrics .hm b{display:block;font-size:16px;font-weight:700;margin-top:2px;color:var(--pri-d)}
+.empty.mini{padding:16px 8px;font-size:12px}
+.empty.mini .em{font-size:28px;margin-bottom:4px}
+
+/* ============ TIME CHIPS ============ */
+.timeChips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:38px;
+  padding:6px;border-radius:12px;background:var(--surf2);align-content:flex-start}
+.chipsHint{font-size:12px;color:var(--mut);padding:6px 8px;align-self:center}
+.timeChip{display:inline-flex;align-items:center;gap:4px;background:var(--pri-bg);color:var(--pri-d);
+  border:1px solid var(--pri);padding:6px 10px;border-radius:99px;font-size:13px;font-weight:700;
+  cursor:pointer;transition:.18s;animation:chipIn .22s ease-out;font-family:inherit}
+.timeChip:hover{background:rgba(217,107,122,.14);color:#b85060;border-color:#d96b7a;
+  transform:scale(1.05)}
+.timeChip .chipX{font-size:16px;line-height:1;opacity:.7}
+.timeAdd{display:flex;gap:8px;align-items:stretch}
+.timeAdd input[type=time]{flex:1;background:var(--surf2);border:1px solid var(--line);
+  border-radius:10px;padding:9px 12px;color:var(--txt);font-size:14px;font-family:inherit}
+.btn-sm{padding:9px 14px;font-size:13px;border-radius:10px}
+.colorInput{height:42px;padding:4px;cursor:pointer}
+
+/* ============ ANIMATIONS ============ */
+@keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+@keyframes chipIn{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.card,.hero{animation:cardIn .4s ease-out backwards}
+body > .card:nth-of-type(1),body > .hero:nth-of-type(1){animation-delay:.02s}
+body > .card:nth-of-type(2),body > .hero:nth-of-type(2){animation-delay:.08s}
+body > .card:nth-of-type(3),body > .hero:nth-of-type(3){animation-delay:.14s}
+body > .card:nth-of-type(4),body > .hero:nth-of-type(4){animation-delay:.2s}
+body > .card:nth-of-type(5),body > .hero:nth-of-type(5){animation-delay:.26s}
+.fadeUp{animation:fadeUp .35s ease-out backwards}
+.tab{transition:opacity .25s ease, transform .25s ease}
+.tab[hidden]{display:none}
+.btn,.iconBtn{transition:transform .15s ease, box-shadow .2s ease, background .2s ease}
+.btn:active,.iconBtn:active{transform:scale(.96)}
+
+/* ============ MOBILE (<=480px) ============ */
+@media(max-width:480px){
+  .hero{padding:18px 16px 16px}
+  .hero .big{font-size:38px}
+  .heroMetrics{gap:8px}
+  .heroMetrics .hm{min-width:74px;padding:7px 9px}
+  .heroMetrics .hm b{font-size:14px}
+  .row2{gap:8px}
+  .field input,.field select,.field textarea{padding:9px 10px;font-size:14px}
+  .topbar{padding:calc(10px + var(--safe-top)) 12px 8px}
+  .iconBtn{width:38px;height:38px;border-radius:12px}
+  .card{padding:14px}
+  .modal{padding:18px 18px calc(18px + var(--safe-bot))}
+  .supItem{padding:10px}
+}
+
 /* ============ MODAL ============ */
 .scrim{position:fixed;inset:0;background:rgba(20,40,30,.45);z-index:80;
   opacity:0;pointer-events:none;transition:.2s;backdrop-filter:blur(4px)}
