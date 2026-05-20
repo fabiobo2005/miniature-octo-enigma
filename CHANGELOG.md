@@ -5,6 +5,18 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ---
 
+## v8.3.1 · 2026-05-20 · Hardening: guard typeof em chamadas globais (saude)
+
+### Frontend
+- Botões "🔔 Notificações" no header e na seção "Status & Notificações" de `saude.html`
+  agora usam `if (typeof reqNotifPermission === 'function')` antes de chamar.
+- Previne `ReferenceError` se o script ainda não tiver carregado.
+
+### Notas
+- Issue GitHub #5 fechada por este release.
+
+---
+
 ## v8.3 · 2026-05-20 · Security: gate admin + CORS restrito
 
 ### Backend
