@@ -1,1237 +1,135 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#0b0f17">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>APEX · Fábio</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>APEX · Início</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-:root{
- --bg:#0b0f17;--surf:#121826;--surf2:#1a2335;--line:#243049;
- --txt:#e7ecf5;--mut:#8a96ad;--pri:#19d3a2;--acc:#7c5cff;
- --warn:#ffb84d;--err:#ff5d6c;--ok:#19d3a2;--info:#4dabff;
- --grad:linear-gradient(135deg,#19d3a2,#7c5cff);
- --shadow:0 8px 28px rgba(0,0,0,.35);
- --safe-top:env(safe-area-inset-top);
-}
-[data-theme="light"]{
- --bg:#f4f6fb;--surf:#fff;--surf2:#f0f3fa;--line:#e3e8f2;
- --txt:#0e1726;--mut:#5a6a85;--shadow:0 8px 24px rgba(20,30,60,.08);
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
- font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
- font-size:15px;line-height:1.45;overscroll-behavior-y:none}
-.container{max-width:780px;margin:0 auto;padding:14px}
-@media(min-width:900px){.container{max-width:1180px;padding:20px}}
-@media(min-width:1400px){.container{max-width:1320px}}
-
-/* ============ HEADER RICO ============ */
-.topbar{position:sticky;top:0;z-index:50;background:var(--bg);
- padding:calc(10px + var(--safe-top)) 14px 10px;border-bottom:1px solid var(--line)}
-.topRow{display:flex;align-items:center;gap:12px}
-.hamb{width:42px;height:42px;border-radius:12px;background:var(--surf);border:1px solid var(--line);
- display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;cursor:pointer;padding:0;flex:none}
-.hamb span{display:block;width:18px;height:2px;background:var(--txt);border-radius:2px;transition:.2s}
-.hamb.open span:nth-child(1){transform:translateY(6px) rotate(45deg)}
-.hamb.open span:nth-child(2){opacity:0}
-.hamb.open span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
-.avatar{width:42px;height:42px;border-radius:50%;background:var(--grad);
- display:flex;align-items:center;justify-content:center;color:#001;font-weight:800;
- cursor:pointer;flex:none;overflow:hidden;background-size:cover;background-position:center;
- border:2px solid var(--line)}
-.avatar input{display:none}
-.userInfo{flex:1;min-width:0}
-.userInfo .nm{font-weight:700;font-size:15px;line-height:1.1;display:flex;align-items:center;gap:8px}
-.userInfo .nm .pageTag{font-size:10px;color:var(--mut);background:var(--surf2);padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
-.userInfo .meta{font-size:11px;color:var(--mut);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.userInfo .meta span{display:inline-flex;align-items:center;gap:3px}
-.thBtn{background:var(--surf);border:1px solid var(--line);color:var(--txt);
- width:42px;height:42px;border-radius:12px;font-size:16px;cursor:pointer;flex:none}
-
-/* ============ DRAWER (LEFT) ============ */
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;opacity:0;pointer-events:none;transition:.25s;backdrop-filter:blur(2px)}
-.scrim.show{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:85vw;background:var(--surf);
- z-index:100;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
- display:flex;flex-direction:column;box-shadow:8px 0 30px rgba(0,0,0,.4);
- padding-top:var(--safe-top)}
-.drawer.open{transform:translateX(0)}
-.drawer header{padding:18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
-.drawer header .av{width:48px;height:48px;border-radius:50%;background:var(--grad);
- display:flex;align-items:center;justify-content:center;color:#001;font-weight:800;
- background-size:cover;background-position:center;border:2px solid var(--line)}
-.drawer header div b{display:block;font-size:14px}
-.drawer header div span{font-size:11px;color:var(--mut)}
-.drawer nav{flex:1;overflow-y:auto;padding:8px 0}
-.drawer nav button{display:flex;align-items:center;gap:14px;width:100%;
- background:transparent;border:0;color:var(--txt);padding:14px 18px;
- font-size:15px;text-align:left;cursor:pointer;font-family:inherit;border-left:3px solid transparent}
-.drawer nav button:active{background:var(--surf2)}
-.drawer nav button.active{background:var(--surf2);color:var(--pri);border-left-color:var(--pri)}
-.drawer nav button svg{width:20px;height:20px;flex:none}
-.drawer footer{padding:14px 18px;border-top:1px solid var(--line);font-size:11px;color:var(--mut)}
-
-/* ============ CARDS ============ */
-.card{background:var(--surf);border:1px solid var(--line);border-radius:18px;
- padding:14px;margin:12px 0;box-shadow:var(--shadow)}
-.card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
-.card h4{margin:14px 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
-
-/* ============ DASHBOARD GRID — fluido ============ */
-.dashGrid{display:grid;grid-template-columns:1fr;gap:12px}
-.dashGrid .card{margin:0}
-@media(min-width:600px){.dashGrid{grid-template-columns:1fr 1fr}}
-@media(min-width:1100px){.dashGrid{grid-template-columns:1.1fr 1fr 1fr}}
-
-.focusChips{display:flex;flex-wrap:wrap;gap:6px}
-
-.linkBtn{display:inline-flex;align-items:center;gap:6px;background:var(--surf2);
- border:1px solid var(--line);color:var(--pri);padding:8px 12px;border-radius:10px;
- font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;font-family:inherit;
- transition:transform .15s,background .15s}
-.linkBtn:hover{background:var(--surf);transform:translateY(-1px)}
-.linkBtn:active{transform:scale(.97)}
-.linkBtn svg{width:14px;height:14px}
-
-/* ============ FAB MINI (inline em card) + MODAL ============ */
-.fabMini{width:36px;height:36px;border-radius:50%;background:var(--grad);border:none;
- color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
- box-shadow:0 4px 12px rgba(124,92,255,.4);transition:transform .18s;flex:none}
-.fabMini:hover{transform:scale(1.1) rotate(90deg)}
-.fabMini:active{transform:scale(.92)}
-.fabMini svg{width:20px;height:20px}
-
-/* ============ COMPOSIÇÃO DETALHADA ============ */
-.bcGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-@media(min-width:600px){.bcGrid{grid-template-columns:repeat(3,1fr)}}
-@media(min-width:1100px){.bcGrid{grid-template-columns:repeat(5,1fr)}}
-.bcItem{background:var(--surf2);border:1px solid var(--line);border-radius:10px;
- padding:10px 8px;text-align:center;display:flex;flex-direction:column;gap:2px;min-width:0}
-.bcItem b{font-size:18px;color:var(--pri);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bcItem span{font-size:10px;color:var(--mut);line-height:1.2}
-.bcItem i{font-size:9px;font-style:normal;font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
-.bcItem i.ok{color:#19d3a2}
-.bcItem i.warn{color:#ffa64d}
-.bcItem i.bad{color:#ff5577}
-.bcItem i.mut{color:var(--mut)}
-.bcGap{grid-column:span 2}
-@media(min-width:600px){.bcGap{grid-column:span 3}}
-@media(min-width:1100px){.bcGap{grid-column:span 1}}
-.bcGap b{color:#ff7a4d}
-
-/* ============ SCORE CARD ============ */
-.scoreCard{display:grid;grid-template-columns:1fr;gap:14px;align-items:center}
-@media(min-width:600px){.scoreCard{grid-template-columns:auto 1fr}}
-.scoreLeft{text-align:center;padding:6px 14px}
-.scoreBig{display:flex;align-items:baseline;justify-content:center;gap:4px}
-.scoreBig b{font-size:64px;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1}
-.scoreBig span{font-size:18px;color:var(--mut);font-weight:700}
-.scoreMid{display:grid;gap:8px}
-.ctrlRow{display:flex;justify-content:space-between;padding:6px 10px;background:var(--surf2);border-radius:8px;font-size:12px}
-.ctrlRow span{color:var(--mut)}
-.ctrlRow b{color:var(--pri);font-weight:700}
-
-/* ============ EVOLUÇÃO LAYOUT ============ */
-.evolGrid{display:grid;grid-template-columns:1fr;gap:12px}
-.evolSide{display:grid;grid-template-columns:1fr;gap:12px;min-width:0}
-.evolSide .card{margin:0}
-.evolChartCard{margin:0}
-.chartBox{position:relative;height:240px;width:100%}
-.histScroll{max-height:200px;overflow-y:auto;border-radius:8px}
-.histScroll table{width:100%}
-.histScroll th{position:sticky;top:0;background:var(--surf);z-index:1}
-
-@media(min-width:900px){
- .evolGrid{grid-template-columns:1.6fr 1fr;align-items:start}
- .chartBox{height:380px}
- .histScroll{max-height:240px}
-}
-@media(min-width:1300px){
- .chartBox{height:440px}
- .histScroll{max-height:300px}
-}
-
-/* ============ SILHUETA CORPORAL ============ */
-.silhouetteGrid{display:grid;grid-template-columns:1fr;gap:18px}
-@media(min-width:700px){.silhouetteGrid{grid-template-columns:1fr 1fr}}
-.silhouetteBox{background:var(--surf2);border:1px solid var(--line);border-radius:12px;padding:14px}
-.silhouetteWrap{position:relative;display:flex;justify-content:center;min-height:380px}
-.bodySvg{width:170px;height:340px;color:var(--mut)}
-.silhouetteWrap .lbl{position:absolute;font-size:10px;line-height:1.2;display:flex;flex-direction:column;gap:1px;min-width:54px}
-.silhouetteWrap .lbl b{font-size:13px;color:var(--pri);font-weight:800}
-.silhouetteWrap .lbl span{color:var(--mut);font-size:9px}
-.silhouetteWrap .lbl i{font-size:8px;font-style:normal;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
-.silhouetteWrap .lbl i.ok{color:#19d3a2}
-.silhouetteWrap .lbl i.warn{color:#ffa64d}
-.silhouetteWrap .lbl i.bad{color:#ff5577}
-.lbl-tl{top:50px;left:0;text-align:right;align-items:flex-end}
-.lbl-tr{top:50px;right:0;text-align:left;align-items:flex-start}
-.lbl-ml{top:230px;left:0;text-align:right;align-items:flex-end}
-.lbl-mr{top:230px;right:0;text-align:left;align-items:flex-start}
-
-/* ============ SEGMENTAL (legacy) ============ */
-.segGrid{display:grid;grid-template-columns:1fr;gap:18px}
-@media(min-width:700px){.segGrid{grid-template-columns:1fr 1fr}}
-.segCol{display:flex;flex-direction:column;gap:6px}
-.segBar{display:grid;grid-template-columns:70px 1fr 36px;align-items:center;gap:8px;font-size:12px}
-.segBar span{color:var(--mut)}
-.segBar .bar{height:8px;background:var(--surf2);border-radius:4px;overflow:hidden}
-.segBar .bar div{height:100%;border-radius:4px;transition:width .4s}
-.segBar b{text-align:right;font-weight:700;color:var(--pri)}
-
-.modalScrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:95;
- opacity:0;pointer-events:none;transition:opacity .2s}
-.modalScrim.open{opacity:1;pointer-events:auto}
-.modal{position:fixed;left:50%;bottom:0;transform:translate(-50%,100%);
- width:100%;max-width:460px;background:var(--surf);border-radius:18px 18px 0 0;
- padding:18px;z-index:96;border:1px solid var(--line);border-bottom:none;
- transition:transform .25s cubic-bezier(.2,.8,.2,1);
- max-height:85vh;overflow-y:auto}
-.modal.open{transform:translate(-50%,0)}
-@media(min-width:700px){
- .modal{bottom:auto;top:50%;border-radius:18px;border-bottom:1px solid var(--line);
-  transform:translate(-50%,-40%) scale(.95);opacity:0}
- .modal.open{transform:translate(-50%,-50%) scale(1);opacity:1}
-}
-.modalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-
-.kpi2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.kpi{background:var(--surf2);border-radius:12px;padding:12px;text-align:center}
-.kpi b{display:block;font-size:22px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:800;line-height:1.1}
-.kpi span{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
-
-.metaRow{margin:8px 0}
-.metaRow .lbl{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:4px}
-.metaRow .lbl b{font-weight:600}
-.metaRow .lbl span{font-size:11px;font-weight:700;color:var(--pri)}
-.progress{height:7px;background:var(--surf2);border-radius:99px;overflow:hidden}
-.progress>div{height:100%;background:var(--grad);transition:width .5s}
-
-.badge{display:inline-block;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:600}
-.b-ok{background:rgba(25,211,162,.15);color:var(--ok)}
-.b-warn{background:rgba(255,184,77,.15);color:var(--warn)}
-.b-err{background:rgba(255,93,108,.15);color:var(--err)}
-.b-info{background:rgba(77,171,255,.15);color:var(--info)}
-
-.alert{border-left:4px solid var(--warn);padding:12px 14px;border-radius:12px;
- background:rgba(255,184,77,.08);margin:12px 0}
-.alert.err{border-left-color:var(--err);background:rgba(255,93,108,.08)}
-.alert.ok{border-left-color:var(--ok);background:rgba(25,211,162,.08)}
-.alert.info{border-left-color:var(--info);background:rgba(77,171,255,.08)}
-.alert h4{margin:0 0 6px;color:var(--txt);text-transform:none;letter-spacing:0;font-size:14px}
-.alert p{margin:4px 0;font-size:13px}
-
-.btn{background:var(--grad);color:#0b0f17;border:none;padding:11px 14px;
- border-radius:12px;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit}
-.btn.ghost{background:var(--surf2);color:var(--txt);border:1px solid var(--line)}
-.btn:active{transform:scale(.97)}
-
-/* ============ SECTIONS ============ */
-.section{display:none}
-.section.active{display:block;animation:fade .3s ease}
-@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-
-/* ============ DIETA ============ */
-.meal{background:var(--surf2);border-radius:14px;padding:12px;margin:10px 0}
-.meal .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.meal .hdr b{font-size:15px}
-.meal .hdr span{font-size:11px;color:var(--mut)}
-.meal ul{margin:6px 0;padding-left:18px;font-size:13px}
-.meal ul li{margin:3px 0}
-.subs{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
-.subs summary{cursor:pointer;font-size:12px;color:var(--info);font-weight:600;padding:4px 0}
-.subs ul{font-size:12px;color:var(--mut);margin-top:6px}
-.orient{margin-top:8px;font-size:12px;color:var(--warn);font-style:italic}
-
-input,textarea,select{
- background:var(--surf2);color:var(--txt);border:1px solid var(--line);
- border-radius:10px;padding:10px 12px;font-size:14px;width:100%;font-family:inherit}
-canvas{max-width:100%}
-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
-th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-th{color:var(--mut);font-weight:600;font-size:11px;text-transform:uppercase}
-.flex-between{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.lab-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
-.lab-row:last-child{border-bottom:0}
-.lab-row .v{font-weight:700}
-
-.chip{display:inline-flex;align-items:center;gap:4px;background:var(--surf2);padding:4px 10px;border-radius:99px;font-size:11px;color:var(--mut);margin:2px}
-
-.row{display:flex;gap:10px;flex-wrap:wrap}
-.col{flex:1;min-width:110px}
+  .userGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:14px}
+  .userCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:18px 12px;
+    text-align:center;cursor:pointer;transition:.2s;box-shadow:var(--shadow-l);display:flex;flex-direction:column;align-items:center;gap:8px}
+  .userCard:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--pri)}
+  .userCard .av{width:56px;height:56px;border-radius:50%;background:var(--grad);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;background-size:cover;background-position:center}
+  .userCard b{font-size:15px;line-height:1.2}
+  .userCard span{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  .userCard.addNew{border-style:dashed;color:var(--pri-d);background:var(--pri-bg);justify-content:center;min-height:120px}
+  .userCard.addNew .av{background:transparent;color:var(--pri-d);font-size:32px}
+  .pickerHero{background:var(--grad-soft);border-radius:24px;padding:24px;margin-bottom:14px;border:1px solid var(--line);text-align:center}
+  .pickerHero h1{margin:0 0 6px;font-size:24px;letter-spacing:-.5px}
+  .pickerHero p{margin:0;color:var(--mut);font-size:14px}
+  .userBadge{display:inline-flex;align-items:center;gap:8px;background:var(--surf);border:1px solid var(--line);
+    border-radius:99px;padding:4px 10px 4px 4px;font-size:13px;cursor:pointer}
+  .userBadge .mini{width:26px;height:26px;border-radius:50%;background:var(--grad);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;background-size:cover;background-position:center}
+  .userBadge:hover{border-color:var(--pri)}
 </style>
 </head>
-<body data-theme="dark">
+<body>
 
-<!-- ============ HEADER ============ -->
-<div class="topbar">
- <div class="topRow">
-  <button class="hamb" id="hambBtn" onclick="toggleDrawer()" aria-label="Menu">
-   <span></span><span></span><span></span>
-  </button>
-  <label class="avatar" id="avatarTop" title="Trocar foto">
-   <span id="avatarInit">F</span>
-   <input type="file" accept="image/*" onchange="onAvatar(event)">
-  </label>
-  <div class="userInfo">
-   <div class="nm">Fábio Oliveira <span class="pageTag" id="pageTag">Início</span></div>
-   <div class="meta">
-    <span>📅 <span id="hDate">—</span></span>
-    <span>📍 <span id="hLoc">localizando…</span></span>
-    <span>🌡️ <span id="hTemp">—</span></span>
-   </div>
-  </div>
-  <button class="thBtn" onclick="toggleTheme()" id="thbtn">🌙</button>
- </div>
-</div>
+<div class="app" id="appRoot">
 
-<!-- ============ DRAWER ============ -->
-<div class="scrim" id="scrim" onclick="toggleDrawer()"></div>
-<aside class="drawer" id="drawer">
- <header>
-  <div class="av" id="avatarSide">F</div>
-  <div><b>Fábio Oliveira</b><span>47 anos · 1,83 m</span></div>
- </header>
- <nav id="navMenu">
-  <button class="active" data-tab="inicio" data-label="Início"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-4v-6h-4v6H6v-9H3z"/></svg>Início</button>
-  <button data-tab="evolucao" data-label="Evolução"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17l6-6 4 4 8-8v4h2V3h-7v2h4l-7 7-4-4-8 8z"/></svg>Evolução</button>
-  <button data-tab="dieta" data-label="Dieta"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 9V2H9v7H7V2H5v7c0 2 1.5 3.7 3.5 4V22h2v-9c2-.3 3.5-2 3.5-4zm5-7v20h2v-8h2V8c0-3.3-2-6-4-6z"/></svg>Dieta</button>
-  <button data-tab="treino" data-label="Treino"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 11H19V7h-2v4H7V7H5v4H3.5C2.7 11 2 11.7 2 12.5S2.7 14 3.5 14H5v4h2v-4h10v4h2v-4h1.5c.8 0 1.5-.7 1.5-1.5S21.3 11 20.5 11z"/></svg>Treino</button>
-  <button data-tab="corpo" data-label="Corpo"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2.5"/><path d="M12 9c-3 0-5 2-5 5v6h2v-5h6v5h2v-6c0-3-2-5-5-5z"/></svg>Corpo</button>
-  <button data-tab="exames" data-label="Exames"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 2v3H6v17h12V5h-3V2zm2 2h2v3h-2zm-3 8h8v2H8zm0 4h5v2H8z"/></svg>Exames</button>
-  <button data-tab="suple" data-label="Suplementação"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 12.5l8-8a5 5 0 017 7l-8 8a5 5 0 01-7-7zm2 2l5 5 3-3-5-5z"/></svg>Suplementação</button>
-  <button data-tab="recup" data-label="Recuperação"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 109 9c0-.5 0-1-.1-1.5A7 7 0 0112 3z"/></svg>Recuperação</button>
-  <button data-tab="check" data-label="Checklists"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19l12-12-1.4-1.4z"/></svg>Checklists</button>
-  <button data-tab="alerta" data-label="Alertas"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2zm12-3h-2v-2h2zm0-4h-2v-4h2z"/></svg>Alertas</button>
- </nav>
- <footer>v4 · Dados locais (localStorage)</footer>
-</aside>
-
-<!-- ============ FAB + MODAL QUICK ADD ============ -->
-<div class="modalScrim" id="qScrim" onclick="closeQuickAdd()"></div>
-<div class="modal" id="qModal" role="dialog" aria-label="Registrar evolução">
- <div class="modalHead">
-  <h3 style="margin:0">📝 Registrar Evolução</h3>
-  <button class="thBtn" onclick="closeQuickAdd()">✕</button>
- </div>
- <p style="font-size:11px;color:var(--mut);margin:0 0 12px">Inputs rápidos sem sair do Início. Salva direto e atualiza KPIs, Composição, Metas e Performance.</p>
- <div class="row">
-  <input type="date" id="qData" class="col">
-  <input type="number" id="qPeso" placeholder="Peso (kg)" step="0.1" class="col">
- </div>
- <div class="row" style="margin-top:8px">
-  <input type="number" id="qBF" placeholder="% Gordura" step="0.1" class="col">
-  <input type="number" id="qMM" placeholder="MM (kg)" step="0.1" class="col">
- </div>
- <details style="margin-top:10px">
-  <summary style="cursor:pointer;font-size:12px;color:var(--pri);font-weight:700">+ Métricas RelaxFit (opcional)</summary>
-  <div class="row" style="margin-top:8px">
-   <input type="number" id="qVisc" placeholder="Visceral" step="1" class="col">
-   <input type="number" id="qAgua" placeholder="% Água" step="0.1" class="col">
-  </div>
-  <div class="row" style="margin-top:6px">
-   <input type="number" id="qMskel" placeholder="% Músc Esq" step="0.1" class="col">
-   <input type="number" id="qGsub" placeholder="% Subcut" step="0.1" class="col">
-  </div>
-  <div class="row" style="margin-top:6px">
-   <input type="number" id="qOsso" placeholder="Massa Óssea" step="0.1" class="col">
-   <input type="number" id="qProt" placeholder="% Proteína" step="0.1" class="col">
-  </div>
-  <div class="row" style="margin-top:6px">
-   <input type="number" id="qTmb" placeholder="TMB kcal" step="1" class="col">
-   <input type="number" id="qIdade" placeholder="Idade Corpo" step="1" class="col">
-  </div>
- </details>
- <button class="btn" style="margin-top:12px;width:100%" onclick="quickAdd()">Salvar</button>
- <p style="font-size:10px;color:var(--mut);text-align:center;margin:10px 0 0">Histórico completo na aba <b>Evolução</b></p>
-</div>
-
-<div class="container">
-
-<!-- ============ INÍCIO ============ -->
-<section class="section active" id="s-inicio">
- <div class="dashGrid">
-  <div class="card">
-   <h3>📊 Meus Números</h3>
-   <div class="kpi2">
-    <div class="kpi"><b id="k-peso">90.3</b><span>Peso (kg)</span></div>
-    <div class="kpi"><b id="k-bf">17.7%</b><span>% Gordura</span></div>
-    <div class="kpi"><b id="k-mm">74.3</b><span>MM (kg)</span></div>
-    <div class="kpi"><b id="k-imc">26.96</b><span>IMC</span></div>
-   </div>
-  </div>
-  <div class="card">
-   <div class="flex-between" style="margin-bottom:10px">
-    <h3 style="margin:0">🎯 Metas</h3>
-    <button class="fabMini" onclick="openQuickAdd()" title="Registrar evolução" aria-label="Registrar evolução">
-     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
-    </button>
-   </div>
-   <div class="metaRow">
-    <div class="lbl"><b>Peso → 85 kg</b><span id="pgPeso">0%</span></div>
-    <div class="progress"><div id="bgPeso" style="width:0%"></div></div>
-   </div>
-   <div class="metaRow">
-    <div class="lbl"><b>%GC → 13%</b><span id="pgBF">0%</span></div>
-    <div class="progress"><div id="bgBF" style="width:0%"></div></div>
-   </div>
-   <div class="metaRow">
-    <div class="lbl"><b>MM → 75+ kg</b><span id="pgMM">0%</span></div>
-    <div class="progress"><div id="bgMM" style="width:0%"></div></div>
-   </div>
-  </div>
-  <div class="card">
-   <h3>🚀 Foco da semana</h3>
-   <div class="focusChips">
-    <div class="chip">💧 3.5 L água</div>
-    <div class="chip">🏋️ 4–6 treinos</div>
-    <div class="chip">🎾 Tênis sáb 11h</div>
-    <div class="chip">😴 22:30 deitar</div>
-    <div class="chip">💊 Vit D + Mg + Ashwa</div>
-   </div>
-  </div>
- </div>
-
- <div class="card">
-  <div class="flex-between" style="margin-bottom:8px">
-   <h3 style="margin:0">🧬 Composição Detalhada</h3>
-   <span class="chip" style="font-size:10px" id="bcDate">RelaxFit · 08/05</span>
-  </div>
-  <div class="bcGrid">
-   <div class="bcItem"><b id="bcVisc">4</b><span>Gord. Visceral</span><i class="ok">ótimo</i></div>
-   <div class="bcItem"><b id="bcAgua">61.5%</b><span>Água Corporal</span><i class="ok">ideal</i></div>
-   <div class="bcItem"><b id="bcMskel">48.3%</b><span>Músc. Esquelético</span><i class="ok">bom</i></div>
-   <div class="bcItem"><b id="bcGsub">11.6%</b><span>Gord. Subcutânea</span><i class="warn">moderado</i></div>
-   <div class="bcItem"><b id="bcOsso">5.0 kg</b><span>Massa Óssea</span><i class="ok">ok</i></div>
-   <div class="bcItem"><b id="bcProt">16.8%</b><span>Proteína</span><i class="warn">subir</i></div>
-   <div class="bcItem"><b id="bcTmb">1985</b><span>TMB (kcal)</span><i class="mut">basal</i></div>
-   <div class="bcItem"><b id="bcIdade">45</b><span>Idade Corporal</span><i class="ok">−2 anos</i></div>
-   <div class="bcItem bcGap"><b id="bcGap">−15.5 kg</b><span>Gap p/ Peso Ideal (73.7)</span><i class="warn">trabalhar</i></div>
-  </div>
- </div>
-
- <div class="card scoreCard">
-  <div class="scoreLeft">
-   <div class="scoreBig"><b>88</b><span>/100</span></div>
-   <p style="font-size:11px;color:var(--mut);margin:4px 0 0">Pontuação RelaxFit · &gt;100 = atlético</p>
-  </div>
-  <div class="scoreMid">
-   <div class="ctrlRow"><span>🎯 Peso alvo</span><b>85.9 kg</b></div>
-   <div class="ctrlRow"><span>🔥 Reduzir gordura</span><b style="color:#ff7a4d">−3.3 kg</b></div>
-   <div class="ctrlRow"><span>💪 Adicionar músculo</span><b style="color:#19d3a2">+0.0 kg</b></div>
-   <div class="ctrlRow"><span>📊 Tipo de corpo</span><b style="color:#ffa64d">Ligeiramente obeso</b></div>
-   <div class="ctrlRow"><span>📐 SMI</span><b>10.0 kg/m²</b></div>
-  </div>
- </div>
-
- <div class="card">
-  <div class="flex-between" style="margin-bottom:8px">
-   <h3 style="margin:0">📈 Performance Geral</h3>
-   <span class="chip" id="perfScore" style="font-weight:800">— / 100</span>
-  </div>
-  <p style="font-size:11px;color:var(--mut);margin:0 0 10px">Pontuação 0–100 por dimensão. Baseado em composição, força, recuperação, hormonal, hábitos e exames.</p>
-  <div style="position:relative;height:340px"><canvas id="perfRadar"></canvas></div>
-  <div id="perfLegend" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px"></div>
- </div>
-</section>
-
-<!-- ============ EVOLUÇÃO (Apple HealthKit) ============ -->
-<section class="section" id="s-evolucao">
- <div class="evolGrid">
-  <div class="card evolChartCard">
-   <div class="flex-between" style="margin-bottom:6px">
-    <h3 style="margin:0">📈 Evolução</h3>
-    <span class="chip" style="font-size:10px">HealthKit em breve</span>
-   </div>
-   <p style="font-size:11px;color:var(--mut);margin:0 0 8px">Integração nativa com <b>Apple HealthKit</b> + RelaxFit em breve. Por ora, registro manual.</p>
-   <div class="chartBox"><canvas id="chartEvol"></canvas></div>
-  </div>
-
-  <div class="evolSide">
-   <div class="card">
-    <h3 style="margin-top:0">➕ Nova medição</h3>
-    <div class="row">
-     <input type="date" id="iData" class="col">
-     <input type="number" id="iPeso" placeholder="Peso (kg)" step="0.1" class="col">
+  <!-- ====== USER PICKER (sem usuário selecionado) ====== -->
+  <section id="viewPicker" hidden>
+    <div class="pickerHero">
+      <h1>👋 Bem-vindo ao APEX</h1>
+      <p>Escolha seu perfil para continuar ou cadastre um novo.</p>
     </div>
-    <div class="row" style="margin-top:8px">
-     <input type="number" id="iBF" placeholder="% Gordura" step="0.1" class="col">
-     <input type="number" id="iMM" placeholder="MM (kg)" step="0.1" class="col">
+
+    <div class="card">
+      <h2>👥 Perfis</h2>
+      <div id="userGrid" class="userGrid">
+        <div style="grid-column:1/-1;text-align:center;color:var(--mut);padding:20px">Carregando…</div>
+      </div>
     </div>
-    <details style="margin-top:10px">
-     <summary style="cursor:pointer;font-size:12px;color:var(--pri);font-weight:700">+ Métricas RelaxFit (opcional)</summary>
-     <div class="row" style="margin-top:8px">
-      <input type="number" id="iVisc" placeholder="Visceral" step="1" class="col">
-      <input type="number" id="iAgua" placeholder="% Água" step="0.1" class="col">
-     </div>
-     <div class="row" style="margin-top:6px">
-      <input type="number" id="iMskel" placeholder="% Músc Esq" step="0.1" class="col">
-      <input type="number" id="iGsub" placeholder="% Subcut" step="0.1" class="col">
-     </div>
-     <div class="row" style="margin-top:6px">
-      <input type="number" id="iOsso" placeholder="Massa Óssea" step="0.1" class="col">
-      <input type="number" id="iProt" placeholder="% Proteína" step="0.1" class="col">
-     </div>
-     <div class="row" style="margin-top:6px">
-      <input type="number" id="iTmb" placeholder="TMB kcal" step="1" class="col">
-      <input type="number" id="iIdade" placeholder="Idade Corpo" step="1" class="col">
-     </div>
-    </details>
-    <button class="btn" style="margin-top:10px;width:100%" onclick="addEvol()">Registrar</button>
-   </div>
+  </section>
 
-   <div class="card histCard">
-    <h3 style="margin-top:0">📋 Histórico</h3>
-    <div class="histScroll">
-     <table id="evolTable"><tr><th>Data</th><th>Peso</th><th>%GC</th><th>MM</th><th></th></tr></table>
+  <!-- ====== HUB (com usuário selecionado) ====== -->
+  <section id="viewHub" hidden>
+    <div class="topbar">
+      <div class="topRow">
+        <div class="avatar"><span id="avInit">?</span></div>
+        <div class="greet">
+          <p class="hi" id="greet">Bom dia</p>
+          <p class="nm" id="userChip">—</p>
+        </div>
+        <button class="iconBtn" onclick="logoutUser()" title="Trocar usuário" aria-label="Trocar usuário">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+        </button>
+        <button class="iconBtn" onclick="toggleTheme()" title="Tema">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
     </div>
-   </div>
-  </div>
- </div>
 
- <div class="card">
-  <div class="flex-between" style="margin-bottom:8px">
-   <h3 style="margin:0">🧬 Composição (% ao longo do tempo)</h3>
-   <span class="chip" style="font-size:10px">Água · Músc · Gordura · Proteína</span>
-  </div>
-  <div class="chartBox" style="height:260px"><canvas id="chartComp"></canvas></div>
- </div>
-
- <div class="card">
-  <div class="flex-between" style="margin-bottom:8px">
-   <h3 style="margin:0">🧍 Análise Segmental</h3>
-   <span class="chip" style="font-size:10px">RelaxFit · 08/05</span>
-  </div>
-  <p style="font-size:11px;color:var(--mut);margin:0 0 14px">% relativo à faixa ideal — <b>80–160%</b> normal para membros, <b>90–110%</b> para tronco.</p>
-
-  <div class="silhouetteGrid">
-   <!-- GORDURA SEGMENTAL -->
-   <div class="silhouetteBox">
-    <h4 style="margin:0 0 10px;text-align:center;font-size:13px">🔥 Gordura Segmental</h4>
-    <div class="silhouetteWrap">
-     <!-- Labels esquerda -->
-     <div class="lbl lbl-tl"><b>0.7 kg</b><span>98.2%</span><i class="ok">Saudável</i></div>
-     <div class="lbl lbl-ml"><b>2.3 kg</b><span>123.0%</span><i class="warn">Saudável</i></div>
-     <!-- Silhueta SVG -->
-     <svg class="bodySvg" viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-       <linearGradient id="gradFat" x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0" stop-color="#ffa64d" stop-opacity=".25"/>
-        <stop offset=".4" stop-color="#ff5577" stop-opacity=".55"/>
-        <stop offset=".7" stop-color="#ffa64d" stop-opacity=".35"/>
-       </linearGradient>
-      </defs>
-      <!-- Cabeça -->
-      <circle cx="100" cy="32" r="22" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".5"/>
-      <!-- Tronco -->
-      <path d="M70 60 Q60 80 60 110 L65 200 Q70 215 80 215 L120 215 Q130 215 135 200 L140 110 Q140 80 130 60 Z"
-            fill="url(#gradFat)" stroke="currentColor" stroke-width="1.2" opacity=".75"/>
-      <!-- Braço esq -->
-      <path d="M60 70 Q40 85 35 130 Q34 165 38 195 L48 197 Q50 165 52 130 Q56 90 70 75 Z"
-            fill="#ffa64d" fill-opacity=".18" stroke="currentColor" stroke-width="1" opacity=".55"/>
-      <!-- Braço dir -->
-      <path d="M140 70 Q160 85 165 130 Q166 165 162 195 L152 197 Q150 165 148 130 Q144 90 130 75 Z"
-            fill="#ffa64d" fill-opacity=".18" stroke="currentColor" stroke-width="1" opacity=".55"/>
-      <!-- Perna esq -->
-      <path d="M75 215 Q72 260 76 320 Q78 350 88 360 L100 358 Q98 320 95 280 Q93 240 90 215 Z"
-            fill="#ffa64d" fill-opacity=".22" stroke="currentColor" stroke-width="1" opacity=".55"/>
-      <!-- Perna dir -->
-      <path d="M125 215 Q128 260 124 320 Q122 350 112 360 L100 358 Q102 320 105 280 Q107 240 110 215 Z"
-            fill="#ffa64d" fill-opacity=".22" stroke="currentColor" stroke-width="1" opacity=".55"/>
-      <!-- Tronco label central -->
-      <text x="100" y="140" text-anchor="middle" font-size="14" font-weight="700" fill="#ff5577">8.1 kg</text>
-      <text x="100" y="156" text-anchor="middle" font-size="9" fill="#ff5577">171.8% · ALTO</text>
-     </svg>
-     <!-- Labels direita -->
-     <div class="lbl lbl-tr"><b>0.7 kg</b><span>94.9%</span><i class="ok">Saudável</i></div>
-     <div class="lbl lbl-mr"><b>2.3 kg</b><span>123.2%</span><i class="warn">Saudável</i></div>
+    <div class="hubHero">
+      <p class="lbl">APEX · 90 dias</p>
+      <h1 class="hubTitle">O que você vai cuidar agora?</h1>
     </div>
-   </div>
 
-   <!-- MÚSCULO SEGMENTAL -->
-   <div class="silhouetteBox">
-    <h4 style="margin:0 0 10px;text-align:center;font-size:13px">💪 Equilíbrio Muscular</h4>
-    <div class="silhouetteWrap">
-     <div class="lbl lbl-tl"><b>4.4 kg</b><span>118.5%</span><i class="ok">Alto</i></div>
-     <div class="lbl lbl-ml"><b>12.4 kg</b><span>120.5%</span><i class="ok">Alto</i></div>
-     <svg class="bodySvg" viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-       <linearGradient id="gradMus" x1="0" x2="0" y1="0" y2="1">
-        <stop offset="0" stop-color="#19d3a2" stop-opacity=".5"/>
-        <stop offset=".5" stop-color="#4dabff" stop-opacity=".4"/>
-        <stop offset="1" stop-color="#19d3a2" stop-opacity=".5"/>
-       </linearGradient>
-      </defs>
-      <circle cx="100" cy="32" r="22" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".5"/>
-      <path d="M70 60 Q60 80 60 110 L65 200 Q70 215 80 215 L120 215 Q130 215 135 200 L140 110 Q140 80 130 60 Z"
-            fill="url(#gradMus)" stroke="currentColor" stroke-width="1.2" opacity=".85"/>
-      <path d="M60 70 Q40 85 35 130 Q34 165 38 195 L48 197 Q50 165 52 130 Q56 90 70 75 Z"
-            fill="#7c5cff" fill-opacity=".35" stroke="currentColor" stroke-width="1" opacity=".7"/>
-      <path d="M140 70 Q160 85 165 130 Q166 165 162 195 L152 197 Q150 165 148 130 Q144 90 130 75 Z"
-            fill="#7c5cff" fill-opacity=".35" stroke="currentColor" stroke-width="1" opacity=".7"/>
-      <path d="M75 215 Q72 260 76 320 Q78 350 88 360 L100 358 Q98 320 95 280 Q93 240 90 215 Z"
-            fill="#4dabff" fill-opacity=".4" stroke="currentColor" stroke-width="1" opacity=".7"/>
-      <path d="M125 215 Q128 260 124 320 Q122 350 112 360 L100 358 Q102 320 105 280 Q107 240 110 215 Z"
-            fill="#4dabff" fill-opacity=".4" stroke="currentColor" stroke-width="1" opacity=".7"/>
-      <text x="100" y="140" text-anchor="middle" font-size="14" font-weight="700" fill="#19d3a2">33.7 kg</text>
-      <text x="100" y="156" text-anchor="middle" font-size="9" fill="#19d3a2">110.9% · ALTO</text>
-     </svg>
-     <div class="lbl lbl-tr"><b>4.4 kg</b><span>119.6%</span><i class="ok">Alto</i></div>
-     <div class="lbl lbl-mr"><b>12.4 kg</b><span>120.5%</span><i class="ok">Alto</i></div>
+    <div class="hubGrid">
+      <a class="hubCard saude" href="/saude.html">
+        <div class="hubIco">❤️</div>
+        <div class="hubBody">
+          <h2>Saúde</h2>
+          <p class="kpi"><b id="hubSaudePeso">—</b> kg · <b id="hubSaudeSupps">0</b> supl. hoje</p>
+          <span class="hubSub">Peso, medições, suplementos →</span>
+        </div>
+      </a>
+
+      <a class="hubCard dieta" href="/dieta.html">
+        <div class="hubIco">🍽️</div>
+        <div class="hubBody">
+          <h2>Dieta</h2>
+          <p class="kpi"><b id="hubDietaPct">0%</b> hoje · <b id="hubDietaStreak">0d</b> sequência</p>
+          <span class="hubSub">6 refeições, plano e disciplina →</span>
+        </div>
+      </a>
+
+      <a class="hubCard treinos" href="/treinos.html">
+        <div class="hubIco">💪</div>
+        <div class="hubBody">
+          <h2>Treinos</h2>
+          <p class="kpi"><b id="hubTreinosSessions">0</b> esta semana · <b id="hubTreinosMin">0</b>min</p>
+          <span class="hubSub">Registro e histórico →</span>
+        </div>
+      </a>
     </div>
-   </div>
-  </div>
 
-  <div style="background:var(--surf2);border-left:3px solid var(--pri);padding:10px 12px;border-radius:8px;margin-top:12px;font-size:12px">
-   <b>📌 Insights:</b> simetria perfeita E/D ✓ · membros com músculo acima do esperado · tronco com <b>72% da gordura total</b> (171.8% acima do ideal) — alvo principal · braços com pouca gordura (boa definição) mas bem musculados.
-  </div>
- </div>
-</section>
-
-<!-- ============ DIETA ============ -->
-<section class="section" id="s-dieta">
- <div class="card">
-  <h3>🍽️ Dieta · Dra. Lorena Medeiros</h3>
-  <p style="font-size:12px;color:var(--mut)">CRN 46308 · 08/05/2026 · <b>3.153 kcal/dia</b> · 6 refeições</p>
- </div>
-
- <div class="card"><div class="meal">
-  <div class="hdr"><b>☕ 08:00 · Café da manhã</b><span>R1</span></div>
-  <ul>
-   <li>Café (xícara: 1 / 200 ml)</li>
-   <li>Pão de forma (fatias: 2)</li>
-   <li>Creme de ricota (colher de sopa: 1)</li>
-   <li>Ovos mexidos (3 ovos)</li>
-  </ul>
-  <details class="subs"><summary>📋 Substituição 1 (oficial)</summary>
-   <ul><li>Café 200ml + Crepioca (1 porção) + Requeijão (1 csopa) + Atum cru (2 csopa / 60g)</li></ul>
-  </details>
-  <details class="subs"><summary>🔁 Substituições autorizadas</summary>
-   <ul>
-    <li><b>Pão por:</b> francês (1) · torrada integral (4) · pão de leite (1) · cuscuz milho (120g) · pão sírio (1) · rap 10 (1)</li>
-    <li><b>Recheios:</b> creme ricota · cottage · creme queijo · requeijão light (1 csopa) · queijo branco (1 fatia) · ricota (1 fatia)</li>
-    <li><b>Acompanhamento:</b> ovos mexidos (3) · patê frango (3 csopa/90g) · carne desfiada (3 csopa/75g) · atum (3 csopa/90g)</li>
-    <li><b>Crepioca por:</b> panqueca de banana · pão de frigideira</li>
-   </ul>
-  </details>
-  <div class="orient">⚠ Adoçar somente com stevia, xilitol ou eritritol.</div>
- </div></div>
-
- <div class="card"><div class="meal">
-  <div class="hdr"><b>🥛 10:30 · Lanche da manhã</b><span>R2</span></div>
-  <ul>
-   <li>Iogurte natural (170 g)</li>
-   <li>Whey protein (30 g)</li>
-   <li>Maçã (1 unidade)</li>
-   <li>Castanha de caju (8 unidades)</li>
-   <li>Farelo de aveia (1 csopa)</li>
-  </ul>
-  <details class="subs"><summary>🔁 Substituições autorizadas</summary>
-   <ul>
-    <li><b>Iogurte+whey por:</b> bebida láctea proteica 25g (250ml) — Piracanjuba ou YoPro</li>
-    <li><b>Castanhas (8u):</b> caju · amêndoas · nozes · avelã · pistache</li>
-    <li><b>Frutas:</b> ameixa(1) · abacaxi(2 rodelas) · acerola(6) · banana nanica(1) · goiaba(1) · kiwi(1) · laranja(1) · mamão(1 fatia) · manga(1 fatia) · maçã(1) · melão(1 fatia) · melancia(1 fatia) · morango(5) · pera(1) · uva(12)</li>
-   </ul>
-  </details>
-  <div class="orient">⚠ Variar as frutas diariamente.</div>
- </div></div>
-
- <div class="card"><div class="meal">
-  <div class="hdr"><b>🍱 12:00 · Almoço</b><span>R3</span></div>
-  <ul>
-   <li>Salada verde à vontade</li>
-   <li>Tomate, cebola, pepino, cenoura, beterraba, pimentão (à vontade)</li>
-   <li>Mix de legumes à vontade</li>
-   <li>Arroz integral cozido (2 colheres servir / 160 g)</li>
-   <li>Feijão carioca (1½ concha / 140 g)</li>
-   <li>Filé de frango com açafrão (2 filés / 160 g)</li>
-   <li>Limão (1) OU vinagre maçã/balsâmico (1 csopa)</li>
-   <li>Azeite (1 col sobremesa)</li>
-   <li>Laranja (1)</li>
-  </ul>
-  <details class="subs"><summary>🔁 Carboidrato</summary>
-   <ul><li>Arroz vermelho/multigrãos · batata cozida/purê (3 pedaços/240g) · batata doce (240g) · mandioquinha (240g) · quinoa (3 csv/160g) · macarrão sem feijão (210g)</li></ul>
-  </details>
-  <details class="subs"><summary>🔁 Proteína vegetal</summary>
-   <ul><li>Feijão preto (1½ concha/140g) · ervilha · lentilha · grão de bico (1½ csv/140g)</li></ul>
-  </details>
-  <details class="subs"><summary>🔁 Proteína animal</summary>
-   <ul>
-    <li>Alcatra grelhada (140g) · Almôndega patinho 2u grandes (140g) · Asa frango 3u (160g) · Bisteca suína (140g) · Carne assada magra (140g) · Carne moída 1 csv rasa (140g) · Carne seca 3 cubos (120g) · Filé frango grelhado (160g) · Filé peixe branco 2 filés (160g) · Filé suíno (145g) · Filé mignon (140g) · Lagarto assado (140g) · Lombo suíno (140g) · Ovo 5un · Patinho bife (140g) · Patinho moído 1½ csv (140g)</li>
-   </ul>
-  </details>
-  <details class="subs"><summary>🔁 Mix de legumes (escolher 2)</summary>
-   <ul><li>Abobrinha · cenoura · abóbora · quiabo · jiló · couve-de-bruxelas · berinjela · aspargos · vagem · maxixe · brócolis · couve-flor</li></ul>
-  </details>
-  <details class="subs"><summary>🔁 Frutas (substituir laranja)</summary>
-   <ul><li>Ameixa · abacaxi · acerola · goiaba · kiwi · mamão · manga · maçã · melão · melancia · morango · pera · uva (mesmas porções listadas acima)</li></ul>
-  </details>
-  <div class="orient">⚠ Tempero por cima · variar diariamente · prato colorido · moderar sal · temperos naturais (manjericão, salsa, cebolinha, alecrim) · azeite no preparo.</div>
- </div></div>
-
- <div class="card"><div class="meal">
-  <div class="hdr"><b>🥪 16:30 · Lanche da tarde</b><span>R4</span></div>
-  <ul>
-   <li>Água de coco (250 ml)</li>
-   <li>Rap 10 (1 unidade)</li>
-   <li>Creme de ricota (1 csopa)</li>
-   <li>Atum (3 csopa / 90 g)</li>
-   <li>Maçã (1)</li>
-  </ul>
-  <details class="subs"><summary>📋 Substituição 1 (oficial)</summary>
-   <ul><li>Água de coco (250ml) + Torta de frango (1 fatia / 250g) + Pera (1)</li></ul>
-  </details>
-  <details class="subs"><summary>🔁 Substituições autorizadas</summary>
-   <ul>
-    <li><b>Água de coco por:</b> suco natural sem açúcar (maracujá/morango/abacaxi/goiaba/acerola/limão) — adoçar com adoçante</li>
-    <li><b>Rap 10 por:</b> pão de forma (2 fatias) · francês (1) · torrada integral (4) · pão de leite (1) · cuscuz milho (120g) · pão sírio (1)</li>
-    <li><b>Recheios:</b> creme ricota · cottage · creme queijo · requeijão light · queijo branco · ricota</li>
-    <li><b>Acompanhamento:</b> ovos mexidos (3) · patê frango (3 csopa) · carne desfiada (3 csopa) · atum (3 csopa)</li>
-    <li><b>Torta frango por:</b> empada de frango (250g)</li>
-   </ul>
-  </details>
-  <div class="orient">⚠ Adoçar com stevia/xilitol/eritritol · variar frutas.</div>
- </div></div>
-
- <div class="card"><div class="meal">
-  <div class="hdr"><b>🍽️ 20:30 · Jantar</b><span>R5</span></div>
-  <ul>
-   <li>Salada verde à vontade</li>
-   <li>Tomate, cebola, pepino, cenoura, beterraba, pimentão (à vontade)</li>
-   <li>Mix de legumes à vontade</li>
-   <li>Purê de batata (3 colheres servir / 220 g)</li>
-   <li>Filé de peixe ao molho de tomate (2 filés / 160 g)</li>
-   <li>Azeite (1 col sobremesa)</li>
-   <li>Limão (1) OU vinagre (1 csopa)</li>
-  </ul>
-  <details class="subs"><summary>🔁 Carboidrato</summary>
-   <ul><li>Arroz integral (2½ csv/160g) · batata cozida (3 pedaços/220g) · batata doce (220g) · mandioquinha (220g) · quinoa (3 csv/160g) · macarrão sem feijão (190g)</li></ul>
-  </details>
-  <details class="subs"><summary>🔁 Proteína animal</summary>
-   <ul><li>Mesmas opções do almoço (alcatra, almôndega, asa, bisteca, carne assada/moída/seca, frango, peixe branco, suíno, mignon, lagarto, lombo, ovo 5un, patinho)</li></ul>
-  </details>
-  <details class="subs"><summary>🔁 Mix de legumes (escolher 2)</summary>
-   <ul><li>Abobrinha · cenoura · abóbora · quiabo · jiló · couve-de-bruxelas · berinjela · aspargos · vagem · maxixe · brócolis · couve-flor</li></ul>
-  </details>
-  <div class="orient">⚠ Mesmas orientações do almoço.</div>
- </div></div>
-
- <div class="card"><div class="meal">
-  <div class="hdr"><b>🌙 21:30 · Lanche da noite</b><span>R6</span></div>
-  <ul>
-   <li>Leite desnatado (250 ml)</li>
-   <li>Multi Collagen (1 medidor)</li>
-   <li>Farelo de aveia (1 csopa)</li>
-   <li>Banana (1)</li>
-  </ul>
-  <details class="subs"><summary>🔁 Frutas (substituir banana)</summary>
-   <ul><li>Ameixa · abacaxi · acerola · banana nanica · goiaba · kiwi · laranja · mamão · manga · maçã · melão · melancia · morango · pera · uva (mesmas porções)</li></ul>
-  </details>
-  <div class="orient">⚠ Variar as frutas diariamente.</div>
- </div></div>
-
- <div class="card">
-  <h3>✅ Refeições de hoje</h3>
-  <div id="mealCheck"></div>
- </div>
-</section>
-
-<!-- ============ TREINO ============ -->
-<section class="section" id="s-treino">
- <div class="card">
-  <h3>🏋️ Divisão · 19:30–22:00</h3>
-  <table>
-   <tr><th>Dia</th><th>Sessão</th></tr>
-   <tr><td>Seg</td><td>PUSH (peito sup + ombro)</td></tr>
-   <tr><td>Ter</td><td>PULL (largura dorsal)</td></tr>
-   <tr><td>Qua</td><td>PERNAS — manutenção</td></tr>
-   <tr><td>Qui</td><td>OMBRO/BRAÇO (opc)</td></tr>
-   <tr><td>Sex</td><td>PULL + posterior</td></tr>
-   <tr><td>Sáb 11h</td><td>🎾 Tênis</td></tr>
-   <tr><td>Dom</td><td>OFF / mobilidade</td></tr>
-  </table>
- </div>
- <div class="card">
-  <h3>📈 Cargas atuais</h3>
-  <table>
-   <tr><th>Exercício</th><th>Atual</th><th>Próx.</th></tr>
-   <tr><td>Supino halter</td><td>40kg/lado · 4–6r</td><td>42.5kg</td></tr>
-   <tr><td>Agachamento</td><td>45kg/lado · 4–6r</td><td>50kg</td></tr>
-   <tr><td>Leg press</td><td>350kg · 4–6r</td><td>370kg</td></tr>
-   <tr><td>Barra fixa</td><td>4–6r livres</td><td>8r</td></tr>
-  </table>
- </div>
-</section>
-
-<!-- ============ CORPO ============ -->
-<section class="section" id="s-corpo">
- <div class="card">
-  <h3>📏 Antropometria 08/05</h3>
-  <table>
-   <tr><th>Medida</th><th>Atual</th><th>Meta</th></tr>
-   <tr><td>Peso</td><td>90.3 kg</td><td>85 kg</td></tr>
-   <tr><td>%GC</td><td>17.7%</td><td>13%</td></tr>
-   <tr><td>Massa Magra</td><td>74.3 kg</td><td>75+ kg</td></tr>
-   <tr><td>Cintura</td><td>96 cm</td><td>88 cm</td></tr>
-   <tr><td>Abdômen</td><td>95 cm</td><td>87 cm</td></tr>
-   <tr><td>Quadril</td><td>105 cm</td><td>102 cm</td></tr>
-  </table>
- </div>
-</section>
-
-<!-- ============ EXAMES ============ -->
-<section class="section" id="s-exames">
- <div class="card">
-  <h3>🧪 Exames 28/04</h3>
-  <div class="alert err"><h4>🚨 Atenção</h4>
-   <div class="lab-row"><span>TSH</span><span class="v">5.81 <span class="badge b-err">ALTO</span></span></div>
-   <div class="lab-row"><span>Cortisol AM</span><span class="v">21.6 <span class="badge b-err">ALTO</span></span></div>
-   <div class="lab-row"><span>Leptina</span><span class="v">1.02 <span class="badge b-err">BAIXÍSSIMA</span></span></div>
-   <div class="lab-row"><span>SHBG</span><span class="v">60.7 <span class="badge b-warn">ALTO</span></span></div>
-  </div>
-  <div class="alert"><h4>⚠️ Sub-ótimos</h4>
-   <div class="lab-row"><span>Vit D</span><span class="v">33 <span class="badge b-warn">subir</span></span></div>
-   <div class="lab-row"><span>Homocisteína</span><span class="v">12 <span class="badge b-warn">limítrofe</span></span></div>
-  </div>
-  <div class="alert ok"><h4>✅ Excelentes</h4>
-   <div class="lab-row"><span>Test Total</span><span class="v">943</span></div>
-   <div class="lab-row"><span>HOMA-IR</span><span class="v">1.18</span></div>
-   <div class="lab-row"><span>HDL/LDL/TG</span><span class="v">46/74/71</span></div>
-   <div class="lab-row"><span>PCR</span><span class="v">0.03</span></div>
-   <div class="lab-row"><span>Ferritina/B12</span><span class="v">92 / 596</span></div>
-   <div class="lab-row"><span>IGF-1</span><span class="v">144</span></div>
-  </div>
- </div>
-</section>
-
-<!-- ============ SUPLE ============ -->
-<section class="section" id="s-suple">
- <div class="card">
-  <h3>💊 Stack</h3>
-  <table>
-   <tr><th>Hora</th><th>Suplemento</th></tr>
-   <tr><td>08:00</td><td>Vit D 5.000 UI + K2 · Complexo B · Ômega 3</td></tr>
-   <tr><td>08:00</td><td>Selênio 200mcg + Iodo 150mcg</td></tr>
-   <tr><td>10:30</td><td>Whey 30g</td></tr>
-   <tr><td>18:30</td><td>Cafeína 200mg + Beta-alanina 3g · Creatina 5g</td></tr>
-   <tr><td>21:30</td><td>Multi Collagen</td></tr>
-   <tr><td>22:30</td><td>Magnésio bisglicinato 400mg + Ashwagandha 600mg</td></tr>
-   <tr><td>22:45</td><td>Melatonina 0.3–0.5mg</td></tr>
-  </table>
- </div>
-</section>
-
-<!-- ============ RECUP ============ -->
-<section class="section" id="s-recup">
- <div class="card">
-  <h3>😴 Recuperação</h3>
-  <ul>
-   <li>Sono 7h consistente (22:30 → 5:30–7:30)</li>
-   <li>Sem tela 30min antes</li>
-   <li>Banho morno + magnésio + ashwa pós-treino</li>
-   <li>Box breathing 4-4-4-4 antes de dormir</li>
-   <li>Caminhada 10min ao sol pela manhã</li>
-  </ul>
- </div>
-</section>
-
-<!-- ============ MENTE ============ -->
-<section class="section" id="s-mente" hidden></section>
-
-<!-- ============ CHECK ============ -->
-<section class="section" id="s-check">
- <div class="card"><h3>✅ Diário</h3><div id="checkDay"></div></div>
- <div class="card"><h3>🗓️ Semanal</h3><div id="checkWeek"></div></div>
-</section>
-
-<!-- ============ ALERTA ============ -->
-<section class="section" id="s-alerta">
- <div class="card"><h3>🚨 Alertas Ativos</h3>
-  <div class="alert err"><h4>Diet Fatigue</h4><p>Leptina 1.02 + TSH 5.81 + Cortisol 21.6. Conversar com Dra. Lorena.</p></div>
-  <div class="alert"><h4>Tireoide subclínica</h4><p>Reavaliar em 60d com anti-TPO + anti-Tg.</p></div>
-  <div class="alert info"><h4>Almoço fora diário</h4><p>Maior vazamento. Seguir as porções da Dra. Lorena.</p></div>
- </div>
-</section>
+    <p class="small" style="text-align:center;margin-top:24px">v8.0 · <a href="/db.html">🗄️ Inspector</a></p>
+  </section>
 
 </div>
 
-<script>
-// ============ THEME ============
-function toggleTheme(){
- const b=document.body, t=b.dataset.theme==='dark'?'light':'dark';
- b.dataset.theme=t; localStorage.setItem('theme',t);
- document.getElementById('thbtn').textContent=t==='dark'?'🌙':'☀️';
- if(typeof renderPerf==='function')renderPerf();
-}
-const sav=localStorage.getItem('theme'); if(sav){document.body.dataset.theme=sav; document.getElementById('thbtn').textContent=sav==='dark'?'🌙':'☀️';}
+<!-- ====== Modal: Cadastrar / Editar usuário ====== -->
+<div class="scrim" id="scrim" onclick="closeUserModal()"></div>
+<div class="modal" id="userModal">
+  <div class="modalH">
+    <b id="userModalTitle">Novo perfil</b>
+    <button class="x" onclick="closeUserModal()">×</button>
+  </div>
+  <input type="hidden" id="uId">
+  <div class="field"><label>Nome <span style="color:var(--err)">*</span></label><input type="text" id="uName" placeholder="Ex: Fábio" required></div>
+  <div class="field"><label>E-mail (opcional)</label><input type="email" id="uEmail" placeholder="seu@email.com"></div>
+  <div class="row2">
+    <div class="field"><label>Nascimento</label><input type="date" id="uBirth"></div>
+    <div class="field"><label>Altura (cm)</label><input type="number" id="uHeight" placeholder="175"></div>
+  </div>
+  <div class="field"><label>Objetivo</label><input type="text" id="uGoal" placeholder="Ex: recomposição 90d, ganho de massa…"></div>
+  <p class="small" style="color:var(--mut);margin:4px 0 12px">📌 No futuro este cadastro virará registro com senha. Por ora é só um perfil local.</p>
+  <button class="btn full" onclick="saveUser()">Salvar perfil</button>
+</div>
 
-// ============ DRAWER ============
-function toggleDrawer(){
- document.getElementById('drawer').classList.toggle('open');
- document.getElementById('scrim').classList.toggle('show');
- document.getElementById('hambBtn').classList.toggle('open');
-}
-function goTab(tab){
- const btn=document.querySelector(`#navMenu button[data-tab="${tab}"]`);
- if(!btn)return;
- const lbl=btn.dataset.label;
- document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
- document.getElementById('s-'+tab).classList.add('active');
- document.querySelectorAll('#navMenu button').forEach(x=>x.classList.remove('active'));
- btn.classList.add('active');
- document.getElementById('pageTag').textContent=lbl;
- if(document.getElementById('drawer').classList.contains('open'))toggleDrawer();
- window.scrollTo({top:0,behavior:'smooth'});
-}
+<div class="toast" id="toast"></div>
 
-// ============ QUICK ADD MODAL ============
-function openQuickAdd(){
- document.getElementById('qData').value=new Date().toISOString().slice(0,10);
- const last=[...state.evol].sort((a,b)=>a.d.localeCompare(b.d)).slice(-1)[0];
- if(last){
-  document.getElementById('qPeso').placeholder='Peso (último: '+last.p+')';
-  document.getElementById('qBF').placeholder='%GC (último: '+last.bf+')';
-  document.getElementById('qMM').placeholder='MM (último: '+(last.mm||'-')+')';
- }
- document.getElementById('qModal').classList.add('open');
- document.getElementById('qScrim').classList.add('open');
-}
-function closeQuickAdd(){
- document.getElementById('qModal').classList.remove('open');
- document.getElementById('qScrim').classList.remove('open');
-}
-function quickAdd(){
- const d=document.getElementById('qData').value||new Date().toISOString().slice(0,10);
- saveEvolFrom('q',d);
- closeQuickAdd();
-}
-const EXTRA_FIELDS=['visc','agua','mskel','gsub','osso','prot','tmb','idade'];
-function saveEvolFrom(prefix,d){
- const g=id=>document.getElementById(prefix+id);
- const num=v=>{v=parseFloat(v);return isNaN(v)?null:v};
- const p=num(g('Peso').value), bf=num(g('BF').value), mm=num(g('MM').value);
- const extras={};
- EXTRA_FIELDS.forEach(f=>{const e=g(f.charAt(0).toUpperCase()+f.slice(1));if(e){const v=num(e.value);if(v!==null)extras[f]=v;}});
- if(!p&&!bf&&!mm&&!Object.keys(extras).length)return alert('Informe ao menos 1 valor');
- const last=[...state.evol].sort((a,b)=>a.d.localeCompare(b.d)).slice(-1)[0]||{};
- const merged=Object.assign({},last,{d,p:p||last.p,bf:bf||last.bf,mm:mm||last.mm},extras);
- state.evol=state.evol.filter(e=>e.d!==d);
- state.evol.push(merged);
- save(state);
- renderChart(); renderPerf(); renderBC(); renderComp();
- [g('Peso'),g('BF'),g('MM')].forEach(i=>i&&(i.value=''));
- EXTRA_FIELDS.forEach(f=>{const e=g(f.charAt(0).toUpperCase()+f.slice(1));if(e)e.value='';});
-}
-document.addEventListener('keydown',e=>{
- if(e.key==='Escape'&&document.getElementById('qModal').classList.contains('open'))closeQuickAdd();
-});
-document.querySelectorAll('#navMenu button').forEach(b=>{
- b.addEventListener('click',()=>goTab(b.dataset.tab));
-});
-
-// Swipe right to open drawer (mobile)
-let touchX=0;
-document.addEventListener('touchstart',e=>{touchX=e.touches[0].clientX},{passive:true});
-document.addEventListener('touchend',e=>{
- const dx=e.changedTouches[0].clientX-touchX;
- if(touchX<30 && dx>60 && !document.getElementById('drawer').classList.contains('open')) toggleDrawer();
- if(dx<-60 && document.getElementById('drawer').classList.contains('open')) toggleDrawer();
-},{passive:true});
-
-// ============ STORAGE ============
-const KEY='apex_v5';
-function load(){
- // migra v4→v5
- const v4=localStorage.getItem('apex_v4');
- const v5=localStorage.getItem(KEY);
- if(v4&&!v5){localStorage.setItem(KEY,v4); localStorage.removeItem('apex_v4');}
- return JSON.parse(localStorage.getItem(KEY)||'{}')
-}
-function save(s){localStorage.setItem(KEY,JSON.stringify(s))}
-let state=load();
-state.checks=state.checks||{};
-state.meals=state.meals||{};
-// baseline RelaxFit 08/05/2026 com TODOS os campos
-const RELAXFIT_BASE={
- d:'2026-05-08', p:89.19, bf:16.2, mm:74.9,
- visc:4, agua:61.5, mskel:48.3, gsub:11.6, osso:5.0, prot:16.8,
- tmb:1985, idade:45, gMassa:14.4, pIdeal:73.7
-};
-state.evol=state.evol||[RELAXFIT_BASE];
-// migra entrada antiga 08/05 sem campos RelaxFit
-const idx=state.evol.findIndex(e=>e.d==='2026-05-08');
-if(idx>=0&&state.evol[idx].visc==null){state.evol[idx]=Object.assign({},state.evol[idx],RELAXFIT_BASE); save(state);}
-
-// ============ AVATAR ============
-function onAvatar(e){
- const f=e.target.files[0]; if(!f)return;
- const r=new FileReader();
- r.onload=()=>{state.avatar=r.result; save(state); applyAvatar();};
- r.readAsDataURL(f);
-}
-function applyAvatar(){
- if(state.avatar){
-  document.getElementById('avatarTop').style.backgroundImage=`url(${state.avatar})`;
-  document.getElementById('avatarSide').style.backgroundImage=`url(${state.avatar})`;
-  document.getElementById('avatarInit').style.display='none';
-  document.getElementById('avatarSide').textContent='';
- }
-}
-applyAvatar();
-
-// ============ HEADER (data + clima) ============
-function fmtDate(){
- const d=new Date();
- const opts={weekday:'short',day:'2-digit',month:'short'};
- document.getElementById('hDate').textContent=d.toLocaleDateString('pt-BR',opts);
-}
-fmtDate();
-function loadWeather(){
- if(!navigator.geolocation){document.getElementById('hLoc').textContent='—';return;}
- navigator.geolocation.getCurrentPosition(async pos=>{
-  const{latitude:la,longitude:lo}=pos.coords;
-  try{
-   const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m&timezone=auto`);
-   const d=await r.json();
-   document.getElementById('hTemp').textContent=Math.round(d.current.temperature_2m)+'°C';
-   const r2=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${la}&lon=${lo}&format=json&zoom=10`);
-   const d2=await r2.json();
-   const city=d2.address?.city||d2.address?.town||d2.address?.suburb||d2.address?.state||'—';
-   document.getElementById('hLoc').textContent=city;
-  }catch(e){document.getElementById('hLoc').textContent='—';}
- },()=>{document.getElementById('hLoc').textContent='sem GPS';},{timeout:5000});
-}
-loadWeather();
-
-// ============ EVOLUÇÃO ============
-let chart;
-function renderChart(){
- const ctx=document.getElementById('chartEvol');
- if(!ctx)return;
- if(chart)chart.destroy();
- const sorted=[...state.evol].sort((a,b)=>a.d.localeCompare(b.d));
- chart=new Chart(ctx,{
-  type:'line',
-  data:{labels:sorted.map(e=>e.d.slice(5)),
-   datasets:[
-    {label:'Peso (kg)',data:sorted.map(e=>e.p),borderColor:'#19d3a2',backgroundColor:'rgba(25,211,162,.1)',tension:.3,yAxisID:'y'},
-    {label:'%GC',data:sorted.map(e=>e.bf),borderColor:'#7c5cff',backgroundColor:'rgba(124,92,255,.1)',tension:.3,yAxisID:'y1'},
-    {label:'MM (kg)',data:sorted.map(e=>e.mm||null),borderColor:'#4dabff',backgroundColor:'rgba(77,171,255,.1)',tension:.3,yAxisID:'y'}
-   ]},
-  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8a96ad'}}},
-   scales:{
-    x:{ticks:{color:'#8a96ad'},grid:{color:'rgba(140,150,170,.1)'}},
-    y:{ticks:{color:'#8a96ad'},grid:{color:'rgba(140,150,170,.1)'}},
-    y1:{position:'right',ticks:{color:'#8a96ad'},grid:{display:false}}
-   }}
- });
- renderEvolTable();
- updateKPIs();
-}
-function renderEvolTable(){
- const t=document.getElementById('evolTable'); if(!t)return;
- t.innerHTML='<tr><th>Data</th><th>Peso</th><th>%GC</th><th>MM</th><th></th></tr>';
- [...state.evol].sort((a,b)=>b.d.localeCompare(a.d)).forEach((e,i)=>{
-  const tr=document.createElement('tr');
-  tr.innerHTML=`<td>${e.d}</td><td>${e.p||'-'}</td><td>${e.bf||'-'}</td><td>${e.mm||'-'}</td><td><button class="btn ghost" style="padding:4px 8px;font-size:11px" onclick="delEvol('${e.d}')">×</button></td>`;
-  t.appendChild(tr);
- });
-}
-function delEvol(d){
- if(!confirm('Remover '+d+'?'))return;
- state.evol=state.evol.filter(e=>e.d!==d); save(state); renderChart(); renderPerf(); renderBC(); renderComp();
-}
-function updateKPIs(){
- const sorted=[...state.evol].sort((a,b)=>a.d.localeCompare(b.d));
- const cur=sorted[sorted.length-1];
- if(!cur)return;
- document.getElementById('k-peso').textContent=cur.p;
- document.getElementById('k-bf').textContent=cur.bf+'%';
- if(cur.mm)document.getElementById('k-mm').textContent=cur.mm;
- const imc=(cur.p/(1.83*1.83)).toFixed(2);
- document.getElementById('k-imc').textContent=imc;
- setProg('Peso',(90.3-cur.p)/(90.3-85)*100);
- setProg('BF',(17.7-cur.bf)/(17.7-13)*100);
- setProg('MM',cur.mm?((cur.mm-74.3)/(75-74.3)*100):0);
-}
-function setProg(k,v){
- v=Math.min(100,Math.max(0,v));
- document.getElementById('pg'+k).textContent=Math.round(v)+'%';
- document.getElementById('bg'+k).style.width=v+'%';
-}
-function addEvol(){
- const d=document.getElementById('iData').value||new Date().toISOString().slice(0,10);
- saveEvolFrom('i',d);
- document.getElementById('iData').value=new Date().toISOString().slice(0,10);
-}
-document.getElementById('iData').value=new Date().toISOString().slice(0,10);
-
-// ============ PERFORMANCE RADAR ============
-let perfChart;
-function calcPerf(){
- const sorted=[...state.evol].sort((a,b)=>a.d.localeCompare(b.d));
- const cur=sorted[sorted.length-1]||{p:90.3,bf:17.7,mm:74.3};
- // Composição: BF 25%→0, BF 12%→100  (alvo 13)
- const composicao=Math.max(0,Math.min(100,(25-cur.bf)/(25-12)*100));
- // Massa Magra: 70→0, 76→100 (alvo 75)
- const massaMagra=Math.max(0,Math.min(100,(cur.mm-70)/(76-70)*100));
- // Força (média lifts atuais vs metas razoáveis): supino 40/50, agacha 45/60, leg 350/400, barra 5/12
- const forca=Math.round(((40/50)+(45/60)+(350/400)+(5/12))/4*100);
- // Cardio: tênis sáb (1) + meta 2x escada = 1/3 atual
- const cardio=33;
- // Recuperação: sono 7h ok, libido ok, mas cortisol alto → 60
- const recuperacao=60;
- // Hormonal (exames): TSH 5.81↑, Cortisol 21.6↑, Leptina 1.02↓↓, Test 943↑, VitD 33→ score ~45
- const hormonal=45;
- // Hidratação meta 3.5L (assume 70% atual)
- const hidratacao=70;
- // Aderência: % refeições marcadas últimos 7 dias
- const today=new Date(); let done=0,total=42;
- for(let i=0;i<7;i++){const d=new Date(today);d.setDate(d.getDate()-i);
-  const k=d.toISOString().slice(0,10); const m=state.meals[k]||{};
-  done+=Object.values(m).filter(Boolean).length;}
- const aderencia=Math.round(done/total*100);
- return {composicao,massaMagra,forca,cardio,recuperacao,hormonal,hidratacao,aderencia};
-}
-function renderPerf(){
- const ctx=document.getElementById('perfRadar'); if(!ctx)return;
- const p=calcPerf();
- const labels=['Composição','Massa Magra','Força','Cardio','Recuperação','Hormonal','Hidratação','Aderência'];
- const vals=[p.composicao,p.massaMagra,p.forca,p.cardio,p.recuperacao,p.hormonal,p.hidratacao,p.aderencia].map(v=>Math.round(v));
- const score=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
- document.getElementById('perfScore').textContent=score+' / 100';
- if(perfChart)perfChart.destroy();
- const dark=!document.body.classList.contains('light');
- const grid=dark?'rgba(140,150,170,.18)':'rgba(60,70,90,.15)';
- const tick=dark?'#8a96ad':'#5a6478';
- perfChart=new Chart(ctx,{
-  type:'radar',
-  data:{labels,datasets:[{
-   label:'Atual',data:vals,
-   backgroundColor:'rgba(124,92,255,.20)',
-   borderColor:'#7c5cff',borderWidth:2,
-   pointBackgroundColor:'#19d3a2',pointBorderColor:'#fff',pointRadius:4
-  },{
-   label:'Meta 90d',data:[85,90,80,70,80,75,90,90],
-   backgroundColor:'rgba(25,211,162,.05)',
-   borderColor:'rgba(25,211,162,.6)',borderWidth:1,borderDash:[4,4],
-   pointRadius:0
-  }]},
-  options:{responsive:true,maintainAspectRatio:false,
-   plugins:{legend:{labels:{color:tick,font:{size:11}}}},
-   scales:{r:{
-    suggestedMin:0,suggestedMax:100,
-    ticks:{color:tick,backdropColor:'transparent',stepSize:25,font:{size:9}},
-    grid:{color:grid},angleLines:{color:grid},
-    pointLabels:{color:tick,font:{size:11,weight:'600'}}
-   }}
-  }
- });
- // legend with notes
- const notes={
-  'Composição':'%GC '+(state.evol.slice(-1)[0]?.bf||17.7)+'% (alvo 13%)',
-  'Massa Magra':'MM '+(state.evol.slice(-1)[0]?.mm||74.3)+' kg (alvo 75+)',
-  'Força':'média dos 4 lifts vs meta',
-  'Cardio':'tênis 1x + meta escada 2x',
-  'Recuperação':'sono 7h, cortisol ↑',
-  'Hormonal':'TSH↑ Leptina↓ Test↑',
-  'Hidratação':'~2.5/3.5 L estimado',
-  'Aderência':'refeições marcadas 7d'
- };
- const leg=document.getElementById('perfLegend');
- leg.innerHTML=labels.map((l,i)=>{
-  const v=vals[i]; const cor=v>=75?'#19d3a2':v>=50?'#ffa64d':'#ff5577';
-  return `<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${cor};flex:none"></span><b style="color:${cor}">${v}</b> <span style="color:var(--mut)">${l} · ${notes[l]}</span></div>`;
- }).join('');
-}
-
-// ============ COMPOSIÇÃO DETALHADA (Início) ============
-function renderBC(){
- const sorted=[...state.evol].sort((a,b)=>a.d.localeCompare(b.d));
- const cur=sorted[sorted.length-1]; if(!cur)return;
- const set=(id,v,suf='')=>{const e=document.getElementById(id);if(e&&v!=null)e.textContent=v+suf};
- set('bcVisc',cur.visc); set('bcAgua',cur.agua,'%'); set('bcMskel',cur.mskel,'%');
- set('bcGsub',cur.gsub,'%'); set('bcOsso',(cur.osso||5).toFixed(1),' kg');
- set('bcProt',cur.prot,'%'); set('bcTmb',cur.tmb); set('bcIdade',cur.idade);
- const ideal=cur.pIdeal||73.7;
- const gap=(cur.p-ideal).toFixed(1);
- const e=document.getElementById('bcGap'); if(e)e.textContent=(gap>0?'−':'+')+Math.abs(gap)+' kg';
- document.getElementById('bcDate').textContent='RelaxFit · '+cur.d.slice(5).replace('-','/');
-}
-
-// ============ COMPOSIÇÃO % (chart Evolução) ============
-let compChart;
-function renderComp(){
- const ctx=document.getElementById('chartComp'); if(!ctx)return;
- if(compChart)compChart.destroy();
- const sorted=[...state.evol].sort((a,b)=>a.d.localeCompare(b.d));
- const labels=sorted.map(e=>e.d.slice(5));
- compChart=new Chart(ctx,{
-  type:'line',
-  data:{labels,datasets:[
-   {label:'% Água',data:sorted.map(e=>e.agua||null),borderColor:'#4dabff',backgroundColor:'rgba(77,171,255,.1)',tension:.3,spanGaps:true},
-   {label:'% Músc Esq',data:sorted.map(e=>e.mskel||null),borderColor:'#19d3a2',backgroundColor:'rgba(25,211,162,.1)',tension:.3,spanGaps:true},
-   {label:'% Gordura',data:sorted.map(e=>e.bf||null),borderColor:'#ff7a4d',backgroundColor:'rgba(255,122,77,.1)',tension:.3,spanGaps:true},
-   {label:'% Proteína',data:sorted.map(e=>e.prot||null),borderColor:'#7c5cff',backgroundColor:'rgba(124,92,255,.1)',tension:.3,spanGaps:true}
-  ]},
-  options:{responsive:true,maintainAspectRatio:false,
-   plugins:{legend:{labels:{color:'#8a96ad',font:{size:11}}}},
-   scales:{x:{ticks:{color:'#8a96ad'},grid:{color:'rgba(140,150,170,.1)'}},
-    y:{ticks:{color:'#8a96ad'},grid:{color:'rgba(140,150,170,.1)'}}}}
- });
-}
-
-// ============ MEAL ============
-const meals=['08:00 Café','10:30 Lanche manhã','12:00 Almoço','16:30 Lanche tarde','20:30 Jantar','21:30 Lanche noite'];
-function renderMeals(){
- const c=document.getElementById('mealCheck'); c.innerHTML='';
- const today=new Date().toISOString().slice(0,10);
- state.meals[today]=state.meals[today]||{};
- meals.forEach((m,i)=>{
-  const k='m'+i, done=state.meals[today][k];
-  const div=document.createElement('div');
-  div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line);cursor:pointer';
-  div.innerHTML=`<div style="width:24px;height:24px;border:2px solid ${done?'var(--pri)':'var(--mut)'};background:${done?'var(--pri)':'transparent'};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#001;font-size:14px;font-weight:700">${done?'✓':''}</div><div style="${done?'text-decoration:line-through;color:var(--mut)':''}">${m}</div>`;
-  div.onclick=()=>{state.meals[today][k]=!done; save(state); renderMeals();};
-  c.appendChild(div);
- });
-}
-
-// ============ CHECKLISTS ============
-const dailyChecks=['Treino feito','6 refeições da Dra. Lorena','3.5 L água','Whey + Creatina','Vit D + Mg + Ômega 3','Ashwa noite','7h+ sono','3 wins anotados'];
-const weekChecks=['4–6 treinos','Tênis sábado','Pesagem jejum (1×)','Foto progresso (1×)','Brain dump 1×','Compras','Revisão domingo'];
-function renderChecks(){
- const today=new Date().toISOString().slice(0,10);
- state.checks[today]=state.checks[today]||{};
- const day=document.getElementById('checkDay'); day.innerHTML='';
- dailyChecks.forEach((t,i)=>{day.appendChild(makeCheck(t,'d'+i,state.checks[today],()=>{state.checks[today]['d'+i]=!state.checks[today]['d'+i]; save(state); renderChecks();}));});
- const wk='w'+getWeek(); state.checks[wk]=state.checks[wk]||{};
- const wkc=document.getElementById('checkWeek'); wkc.innerHTML='';
- weekChecks.forEach((t,i)=>{wkc.appendChild(makeCheck(t,'w'+i,state.checks[wk],()=>{state.checks[wk]['w'+i]=!state.checks[wk]['w'+i]; save(state); renderChecks();}));});
-}
-function makeCheck(label,key,store,cb){
- const done=store[key];
- const div=document.createElement('div');
- div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line);cursor:pointer';
- div.innerHTML=`<div style="width:24px;height:24px;border:2px solid ${done?'var(--pri)':'var(--mut)'};background:${done?'var(--pri)':'transparent'};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#001;font-size:14px;font-weight:700">${done?'✓':''}</div><div style="${done?'text-decoration:line-through;color:var(--mut)':''}">${label}</div>`;
- div.onclick=cb;
- return div;
-}
-function getWeek(){const d=new Date();const o=new Date(d.getFullYear(),0,1);return Math.ceil(((d-o)/86400000+o.getDay()+1)/7);}
-
-// ============ TEXT ============
-function saveText(id){state[id]=document.getElementById(id).value;save(state);}
-function loadText(){['wins','brain'].forEach(k=>{const el=document.getElementById(k);if(el&&state[k])el.value=state[k];});}
-
-// ============ INIT ============
-renderChart(); renderMeals(); renderChecks(); loadText(); renderPerf(); renderBC(); renderComp();
-</script>
+<script src="/js/core.js"></script>
+<script src="/js/launcher.js"></script>
 </body>
 </html>

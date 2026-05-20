@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<title>APEX · Saúde</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="topRow">
+      <a class="iconBtn" href="/" title="Início" aria-label="Início">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </a>
+      <div class="greet">
+        <p class="hi" id="greet">Bom dia</p>
+        <p class="nm"><span id="userChip">—</span> · Saúde <span class="areaBadge">❤️ Área</span></p>
+      </div>
+      <button class="iconBtn" onclick="logoutUser()" title="Trocar usuário" aria-label="Trocar usuário">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+      </button>
+      <button class="iconBtn" onclick="reqNotifPermission()" title="Notificações">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
+      <button class="iconBtn" onclick="toggleTheme()" title="Tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <p class="lbl">Peso atual</p>
+    <div class="big"><span id="todayWeight">—</span><small> kg</small></div>
+    <div class="row">
+      <div class="stat"><b id="todaySupps">0</b><span>suplementos hoje</span></div>
+      <div class="stat"><b id="streak">0d</b><span>sequência</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>💊 Próximos suplementos</h2>
+    <div id="nextSupps"></div>
+  </div>
+
+  <div class="card">
+    <h2>💊 Meus suplementos</h2>
+    <div class="supList" id="supList"></div>
+    <button class="btn full" style="margin-top:14px" onclick="openSupModal()">+ Adicionar suplemento</button>
+  </div>
+
+  <div class="card">
+    <h2>⚖️ Nova medição</h2>
+    <div class="row2">
+      <div class="field"><label>Data</label><input type="date" id="iData"></div>
+      <div class="field"><label>Peso (kg)</label><input type="number" id="iPeso" step="0.1" placeholder="82.5"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>% Gordura</label><input type="number" id="iBF" step="0.1" placeholder="18.2"></div>
+      <div class="field"><label>Massa Muscular (kg)</label><input type="number" id="iMM" step="0.1" placeholder="62.0"></div>
+    </div>
+    <details>
+      <summary style="cursor:pointer;font-size:13px;color:var(--pri-d);font-weight:600;margin-bottom:10px">+ Métricas RelaxFit (opcional)</summary>
+      <div class="row2">
+        <div class="field"><label>Visceral</label><input type="number" id="iVisc" step="1"></div>
+        <div class="field"><label>% Água</label><input type="number" id="iAgua" step="0.1"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>% Músc Esq</label><input type="number" id="iMskel" step="0.1"></div>
+        <div class="field"><label>% Subcut</label><input type="number" id="iGsub" step="0.1"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Massa Óssea</label><input type="number" id="iOsso" step="0.1"></div>
+        <div class="field"><label>% Proteína</label><input type="number" id="iProt" step="0.1"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>TMB (kcal)</label><input type="number" id="iTmb" step="1"></div>
+        <div class="field"><label>Idade corporal</label><input type="number" id="iIdade" step="1"></div>
+      </div>
+    </details>
+    <button class="btn full" onclick="addEvol()">Registrar medição</button>
+  </div>
+
+  <div class="card">
+    <h2>📈 Evolução do peso</h2>
+    <div class="chartBox"><canvas id="chWeight"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>🔔 Lembretes</h2>
+    <div class="reminderBox">
+      <div class="em">🛎️</div>
+      <div class="info">
+        <b>Notificações</b>
+        <span id="notifState">Verifique o estado abaixo</span>
+      </div>
+      <button class="btn ghost" onclick="reqNotifPermission()">Ativar</button>
+    </div>
+    <p class="small" style="margin-top:10px">As notificações aparecem nos horários cadastrados em cada suplemento (apenas com o app aberto ou instalado como PWA). Para iOS, adicione à tela inicial para receber notificações nativas.</p>
+  </div>
+
+  <div class="card">
+    <h2>📜 Histórico de suplementos</h2>
+    <div id="supHistory"></div>
+  </div>
+
+</div>
+
+<!-- Modal: Add/Edit Supplement -->
+<div class="scrim" id="scrim" onclick="closeAll()"></div>
+<div class="modal" id="supModal">
+  <div class="modalH">
+    <b id="supModalTitle">Novo suplemento</b>
+    <button class="x" onclick="closeAll()">×</button>
+  </div>
+  <input type="hidden" id="supId">
+  <div class="row2">
+    <div class="field"><label>Ícone</label><input type="text" id="supIcon" placeholder="💊" maxlength="4"></div>
+    <div class="field"><label>Cor</label><input type="color" id="supColor" value="#7BC4A4"></div>
+  </div>
+  <div class="field"><label>Nome</label><input type="text" id="supName" placeholder="Ex: Vitamina D3"></div>
+  <div class="field"><label>Dose</label><input type="text" id="supDose" placeholder="Ex: 5.000 UI"></div>
+  <div class="field">
+    <label>Horários (separados por vírgula)</label>
+    <input type="text" id="supSchedule" placeholder="08:00,22:30">
+  </div>
+  <div class="field"><label>Notas (opcional)</label><textarea id="supNotes" rows="2"></textarea></div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn ghost" style="flex:1" id="supDeleteBtn" onclick="deleteSup()" hidden>Remover</button>
+    <button class="btn" style="flex:2" onclick="saveSup()">Salvar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/js/core.js"></script>
+<script src="/js/saude.js"></script>
+</body>
+</html>

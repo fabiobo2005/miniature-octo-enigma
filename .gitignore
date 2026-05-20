@@ -25,3 +25,9 @@ Thumbs.db
 
 # Backups
 *.bak
+
+# Azure ARM output
+infra/main.json
+# Stale deploy zips
+*-app.zip
+

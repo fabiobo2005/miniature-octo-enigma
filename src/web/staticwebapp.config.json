@@ -10,9 +10,5 @@
     "Cache-Control": "no-cache",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin"
-  },
-  "routes": [
-    { "route": "/api/*", "methods": ["GET","POST","PUT","DELETE","OPTIONS"] },
-    { "route": "/service-worker.js", "headers": { "Cache-Control": "no-cache" } }
-  ]
+  }
 }

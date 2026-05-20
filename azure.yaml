@@ -1,26 +1,21 @@
-# azd configuration for APEX
 name: apex
 metadata:
-  template: apex-bicep@1.0.0
+  template: apex-aca@1.0.0
 
 services:
-  web:
-    project: ./src/web
-    language: js
-    host: staticwebapp
-    dist: .
   api:
     project: ./src/api
     language: ts
-    host: function
-
-hooks:
-  postprovision:
-    windows:
-      shell: pwsh
-      run: |
-        Write-Host "✓ Provision complete. Apply DB schema with: psql -h <fqdn> -U <admin> -d apex -f src/api/db/init.sql"
-    posix:
-      shell: sh
-      run: |
-        echo "✓ Provision complete. Apply DB schema with: psql -h <fqdn> -U <admin> -d apex -f src/api/db/init.sql"
+    host: containerapp
+    docker:
+      path: Dockerfile
+      context: .
+      remoteBuild: true
+  web:
+    project: ./src/web
+    language: docker
+    host: containerapp
+    docker:
+      path: Dockerfile
+      context: .
+      remoteBuild: true

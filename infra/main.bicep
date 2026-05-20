@@ -18,15 +18,23 @@ param tags object = {
   'azd-env-name': environmentName
 }
 
-@description('PostgreSQL administrator login (Entra group/user object id)')
+@description('Postgres admin Entra principal object id')
 param postgresAdminObjectId string
 
-@description('PostgreSQL administrator login name (UPN of the Entra user)')
+@description('Postgres admin Entra principal UPN/name')
 param postgresAdminLogin string
 
-@description('PostgreSQL administrator type')
 @allowed([ 'User', 'Group', 'ServicePrincipal' ])
 param postgresAdminType string = 'User'
+
+@description('Placeholder image used until first azd deploy pushes real images')
+param placeholderImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
+
+@description('Image tag/path for apex-api (set by azd after build)')
+param apiImage string = ''
+
+@description('Image tag/path for apex-web (set by azd after build)')
+param webImage string = ''
 
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var rgName = 'rg-${environmentName}'
@@ -47,17 +55,6 @@ module identity 'modules/identity.bicep' = {
   }
 }
 
-module monitoring 'modules/monitoring.bicep' = {
-  scope: rg
-  name: 'monitoring'
-  params: {
-    workspaceName: 'log-apex-${resourceToken}'
-    appInsightsName: 'appi-apex-${resourceToken}'
-    location: location
-    tags: tags
-  }
-}
-
 module db 'modules/db.bicep' = {
   scope: rg
   name: 'db'
@@ -73,40 +70,79 @@ module db 'modules/db.bicep' = {
   }
 }
 
-module api 'modules/api.bicep' = {
+module acr 'modules/acr.bicep' = {
   scope: rg
-  name: 'api'
+  name: 'acr'
   params: {
-    functionAppName: 'func-apex-${resourceToken}'
-    storageName: 'stapex${resourceToken}'
-    planName: 'plan-apex-${resourceToken}'
+    name: 'acrapex${resourceToken}'
     location: location
     tags: tags
+  }
+}
+
+module acrRole 'modules/acr-role.bicep' = {
+  scope: rg
+  name: 'acrRole'
+  params: {
+    acrName: acr.outputs.name
+    principalId: identity.outputs.principalId
+  }
+}
+
+module acaEnv 'modules/aca-env.bicep' = {
+  scope: rg
+  name: 'acaEnv'
+  params: {
+    envName: 'cae-apex-${resourceToken}'
+    workspaceName: 'log-apex-${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
+module acaApi 'modules/aca-api.bicep' = {
+  scope: rg
+  name: 'acaApi'
+  params: {
+    name: 'ca-apex-api'
+    location: location
+    tags: tags
+    envId: acaEnv.outputs.id
+    image: empty(apiImage) ? placeholderImage : apiImage
     userAssignedIdentityId: identity.outputs.id
     userAssignedIdentityClientId: identity.outputs.clientId
-    appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
+    acrLoginServer: acr.outputs.loginServer
     pgHost: db.outputs.fqdn
     pgDatabase: db.outputs.databaseName
     pgUser: identity.outputs.name
   }
+  dependsOn: [ acrRole ]
 }
 
-module web 'modules/web.bicep' = {
+module acaWeb 'modules/aca-web.bicep' = {
   scope: rg
-  name: 'web'
+  name: 'acaWeb'
   params: {
-    name: 'stapp-apex-${resourceToken}'
-    location: 'centralus'
+    name: 'ca-apex-web'
+    location: location
     tags: tags
-    apiResourceId: api.outputs.functionAppId
+    envId: acaEnv.outputs.id
+    image: empty(webImage) ? placeholderImage : webImage
+    userAssignedIdentityId: identity.outputs.id
+    acrLoginServer: acr.outputs.loginServer
+    apiInternalFqdn: acaApi.outputs.internalFqdn
   }
+  dependsOn: [ acrRole ]
 }
 
 output AZURE_LOCATION string = location
 output AZURE_RESOURCE_GROUP string = rg.name
-output AZURE_FUNCTION_APP_NAME string = api.outputs.functionAppName
-output AZURE_STATIC_WEB_APP_NAME string = web.outputs.name
-output AZURE_STATIC_WEB_APP_URL string = web.outputs.defaultHostname
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = acr.outputs.loginServer
+output AZURE_CONTAINER_REGISTRY_NAME string = acr.outputs.name
+output AZURE_CONTAINER_APPS_ENVIRONMENT_NAME string = acaEnv.outputs.name
+output AZURE_CONTAINER_APP_API_NAME string = acaApi.outputs.name
+output AZURE_CONTAINER_APP_WEB_NAME string = acaWeb.outputs.name
+output WEB_URL string = 'https://${acaWeb.outputs.fqdn}'
 output AZURE_POSTGRES_FQDN string = db.outputs.fqdn
 output AZURE_POSTGRES_DATABASE string = db.outputs.databaseName
 output AZURE_USER_ASSIGNED_IDENTITY_ID string = identity.outputs.id

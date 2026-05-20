@@ -1,0 +1,6 @@
+{
+  "name": "apex-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "APEX PWA — static assets only (no build step)"
+}

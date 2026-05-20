@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>APEX · Banco de Dados</title>
+<style>
+  :root{--bg:#0b0f14;--surf:#121821;--surf2:#1a2230;--line:#26303d;--txt:#e8edf3;--mut:#8a96a7;--pri:#5cc8ff;--ok:#54d191;--err:#ff6b7a}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+  header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;position:sticky;top:0;background:var(--bg);z-index:5}
+  header h1{margin:0;font-size:18px;font-weight:600}
+  header .meta{color:var(--mut);font-size:12px}
+  header a{margin-left:auto;color:var(--pri);text-decoration:none;font-size:13px}
+  main{padding:20px;max-width:1200px;margin:0 auto}
+  .panel{background:var(--surf);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;overflow:hidden}
+  .panel h2{margin:0;padding:12px 16px;font-size:15px;background:var(--surf2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .panel h2 .badge{font-size:11px;color:var(--mut);font-weight:400;background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--line)}
+  .panel h3{margin:16px 16px 8px;font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--surf2);color:var(--mut);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0}
+  tr:hover td{background:rgba(92,200,255,.04)}
+  td code{color:var(--pri)}
+  .scroll{overflow-x:auto;max-height:420px;overflow-y:auto}
+  .empty{padding:16px;color:var(--mut);font-style:italic}
+  .status{padding:20px;text-align:center;color:var(--mut)}
+  .err{color:var(--err);padding:16px;background:rgba(255,107,122,.08);border-radius:8px;margin:16px}
+  .schema-list{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 12px}
+  .schema-list span{background:var(--surf2);border:1px solid var(--line);padding:4px 10px;border-radius:12px;font-size:12px;color:var(--pri)}
+  .null{color:var(--mut);font-style:italic}
+</style>
+</head>
+<body>
+<header>
+  <h1>🗄️ APEX · Banco de Dados</h1>
+  <span class="meta" id="meta"></span>
+  <a href="/">← Voltar ao app</a>
+</header>
+<main id="root"><div class="status">Carregando…</div></main>
+<script>
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c])}
+function fmtVal(v){
+  if(v===null||v===undefined)return '<span class="null">null</span>';
+  if(typeof v==='object')return '<code>'+esc(JSON.stringify(v))+'</code>';
+  return esc(String(v));
+}
+async function load(){
+  const root=document.getElementById('root');
+  try{
+    const t0=Date.now();
+    const r=await fetch('/api/db/inspect');
+    if(!r.ok)throw new Error('HTTP '+r.status+' — '+(await r.text()));
+    const data=await r.json();
+    document.getElementById('meta').textContent=`${data.tables.length} tabela(s) · ${Date.now()-t0}ms`;
+
+    let html='';
+    html+='<div class="panel"><h2>Schemas <span class="badge">'+data.schemas.length+'</span></h2><div class="schema-list">'+
+      data.schemas.map(s=>'<span>'+esc(s)+'</span>').join('')+'</div></div>';
+
+    if(!data.tables.length){
+      html+='<div class="empty">Nenhuma tabela encontrada.</div>';
+    } else {
+      for(const t of data.tables){
+        html+='<div class="panel"><h2>'+esc(t.schema)+'.'+esc(t.name)+
+          ' <span class="badge">'+t.count+' linha(s)</span></h2>';
+        html+='<h3>Colunas</h3><div class="scroll"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Nullable</th></tr></thead><tbody>';
+        for(const c of t.columns){
+          html+='<tr><td>'+esc(c.column_name)+'</td><td><code>'+esc(c.data_type)+'</code></td><td>'+esc(c.is_nullable)+'</td></tr>';
+        }
+        html+='</tbody></table></div>';
+
+        if(t.rows.length){
+          const cols=t.columns.map(c=>c.column_name);
+          html+='<h3>Dados (primeiras '+t.rows.length+' linha(s))</h3><div class="scroll"><table><thead><tr>'+
+            cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
+          for(const row of t.rows){
+            html+='<tr>'+cols.map(c=>'<td>'+fmtVal(row[c])+'</td>').join('')+'</tr>';
+          }
+          html+='</tbody></table></div>';
+        } else {
+          html+='<div class="empty">Sem dados.</div>';
+        }
+        html+='</div>';
+      }
+    }
+    root.innerHTML=html;
+  } catch(e){
+    root.innerHTML='<div class="err">Erro: '+esc(e.message)+'</div>';
+  }
+}
+load();
+</script>
+</body>
+</html>

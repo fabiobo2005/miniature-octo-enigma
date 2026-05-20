@@ -53,28 +53,12 @@ resource pg 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
   }
 }
 
-resource adminUser 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2024-08-01' = {
-  parent: pg
-  name: adminObjectId
-  properties: {
-    principalName: adminLogin
-    principalType: adminType
-    tenantId: subscription().tenantId
-  }
-}
+// NOTE: Postgres Entra administrators are managed out-of-band via az CLI,
+// because including them in the same Bicep deployment as the server triggers
+// AadAuthOperationCannotBePerformedWhenServerIsNotAccessible during server updates.
+// See post-deployment runbook for the `az postgres flexible-server microsoft-entra-admin create` commands.
 
-resource adminApi 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2024-08-01' = {
-  parent: pg
-  name: apiPrincipalId
-  properties: {
-    principalName: apiPrincipalName
-    principalType: 'ServicePrincipal'
-    tenantId: subscription().tenantId
-  }
-  dependsOn: [ adminUser ]
-}
-
-resource db 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-01' = {
+resource db'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-01' = {
   parent: pg
   name: 'apex'
   properties: {

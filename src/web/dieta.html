@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<title>APEX · Dieta</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="topRow">
+      <a class="iconBtn" href="/" title="Início" aria-label="Início">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </a>
+      <div class="greet">
+        <p class="hi" id="greet">Bom dia</p>
+        <p class="nm"><span id="userChip">—</span> · Dieta <span class="areaBadge">🍽️ Área</span></p>
+      </div>
+      <button class="iconBtn" onclick="logoutUser()" title="Trocar usuário" aria-label="Trocar usuário">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+      </button>
+      <button class="iconBtn" onclick="toggleTheme()" title="Tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🍽️ Plano alimentar <span class="sub">Dra. Lorena · 3.153 kcal</span></h2>
+    <p class="small">CRN 46308 · revisão 08/05/2026 · 6 refeições/dia</p>
+  </div>
+
+  <div class="card">
+    <h2>✅ Hoje <span class="sub" id="discTodayDieta">0%</span></h2>
+    <div class="mealList" id="mealCheckDieta"></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Disciplina · últimos 30 dias</h2>
+    <div class="ring">
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="34" stroke="var(--surf2)" stroke-width="8" fill="none"/>
+        <circle id="ringDisc" cx="40" cy="40" r="34" stroke="url(#gradRing)" stroke-width="8" fill="none"
+          stroke-dasharray="213" stroke-dashoffset="213" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+        <defs><linearGradient id="gradRing"><stop offset="0" stop-color="#7BC4A4"/><stop offset="1" stop-color="#6fa8d6"/></linearGradient></defs>
+      </svg>
+      <div class="lbls">
+        <div class="t">Média de aderência</div>
+        <div class="v" id="discAvg">—</div>
+        <div class="s" id="discSubtitle">aguardando dados</div>
+      </div>
+    </div>
+    <div class="discBar" id="discBar"></div>
+    <div class="chartBox"><canvas id="chDisc"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>📋 Cardápio recomendado</h2>
+    <div id="mealMenu"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/js/core.js"></script>
+<script src="/js/dieta.js"></script>
+</body>
+</html>

@@ -16,6 +16,12 @@
     },
     "postgresAdminType": {
       "value": "${POSTGRES_ADMIN_TYPE=User}"
+    },
+    "apiImage": {
+      "value": "${SERVICE_API_IMAGE_NAME=}"
+    },
+    "webImage": {
+      "value": "${SERVICE_WEB_IMAGE_NAME=}"
     }
   }
 }
