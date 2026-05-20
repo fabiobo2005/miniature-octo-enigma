@@ -1,0 +1,79 @@
+name: Cost · Start (08:00 BRT, Mon-Fri)
+
+on:
+  schedule:
+    # 08:00 America/Sao_Paulo (UTC-3) = 11:00 UTC, Mon-Fri
+    - cron: '0 11 * * 1-5'
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG: rg-apex-dev
+  PG_NAME: psql-apex-ydcoajutfl3he
+  ACA_API: ca-apex-api
+  ACA_WEB: ca-apex-web
+  ACA_MIN_REPLICAS: '1'
+  ACA_MAX_REPLICAS: '3'
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Start PostgreSQL Flexible Server
+        run: |
+          STATE=$(az postgres flexible-server show -g "$RG" -n "$PG_NAME" --query state -o tsv)
+          echo "Current state: $STATE"
+          if [ "$STATE" = "Stopped" ]; then
+            az postgres flexible-server start -g "$RG" -n "$PG_NAME"
+            echo "Started."
+          else
+            echo "Already running, skipping."
+          fi
+
+      - name: Wait for PG to be Ready
+        run: |
+          for i in {1..30}; do
+            STATE=$(az postgres flexible-server show -g "$RG" -n "$PG_NAME" --query state -o tsv)
+            echo "Attempt $i: $STATE"
+            [ "$STATE" = "Ready" ] && break
+            sleep 10
+          done
+
+      - name: Restore Container Apps replicas
+        run: |
+          for APP in "$ACA_API" "$ACA_WEB"; do
+            echo "::group::Scaling $APP to $ACA_MIN_REPLICAS/$ACA_MAX_REPLICAS"
+            az containerapp update \
+              --name "$APP" --resource-group "$RG" \
+              --min-replicas "$ACA_MIN_REPLICAS" --max-replicas "$ACA_MAX_REPLICAS" \
+              --query "properties.template.scale" -o json
+            echo "::endgroup::"
+          done
+
+      - name: Health check
+        run: |
+          sleep 20
+          for i in {1..6}; do
+            HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
+              "https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/healthz" || true)
+            echo "Healthz attempt $i: $HTTP"
+            [ "$HTTP" = "200" ] && exit 0
+            sleep 15
+          done
+          echo "::warning::Health check did not return 200 after warmup"
+
+      - name: Summary
+        run: |
+          echo "### Start completed $(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- PostgreSQL: $PG_NAME → Ready" >> $GITHUB_STEP_SUMMARY
+          echo "- Container Apps: $ACA_API, $ACA_WEB → $ACA_MIN_REPLICAS/$ACA_MAX_REPLICAS replicas" >> $GITHUB_STEP_SUMMARY

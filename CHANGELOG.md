@@ -5,6 +5,27 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ---
 
+## v8.2 · 2026-05-20 · DevOps: schedule de stop/start para otimização de custo
+
+### DevOps
+- Adicionado fluxo branch+PR (CONTRIBUTING.md, branch protection em `main`).
+- App registration `apex-github-oidc` com federated credential para GitHub Actions
+  (sem segredos de senha). Role: Contributor em `rg-apex-dev`.
+- Workflow `cost-schedule-stop.yml` (cron `0 23 * * 1-5` UTC = 20:00 BRT seg-sex):
+  - Para `psql-apex-ydcoajutfl3he`
+  - Escala `ca-apex-api` e `ca-apex-web` para 0/0 réplicas
+- Workflow `cost-schedule-start.yml` (cron `0 11 * * 1-5` UTC = 08:00 BRT seg-sex):
+  - Inicia o Postgres e aguarda estado `Ready`
+  - Restaura ACAs para 1/3 réplicas
+  - Health check em `/healthz`
+- Documentação em `docs/cost-schedule.md` (runbook + estimativa de economia ~R$ 73/mês).
+
+### Notas
+- Issue GitHub #4 (P0 backlog) endereçada por este release.
+- Refs: PR `feat/cost-schedule-pg-aca`.
+
+---
+
 ## v8.1 · 2026-05-20 · Hotfix: troca de usuário ficava em branco ✅ validado em produção
 
 ### Causa raiz

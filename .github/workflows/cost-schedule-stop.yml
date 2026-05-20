@@ -1,0 +1,56 @@
+name: Cost · Stop (20:00 BRT, Mon-Fri)
+
+on:
+  schedule:
+    # 20:00 America/Sao_Paulo (UTC-3) = 23:00 UTC, Mon-Fri
+    - cron: '0 23 * * 1-5'
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG: rg-apex-dev
+  PG_NAME: psql-apex-ydcoajutfl3he
+  ACA_API: ca-apex-api
+  ACA_WEB: ca-apex-web
+
+jobs:
+  stop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Scale Container Apps to 0 replicas
+        run: |
+          for APP in "$ACA_API" "$ACA_WEB"; do
+            echo "::group::Scaling $APP to 0"
+            az containerapp update \
+              --name "$APP" --resource-group "$RG" \
+              --min-replicas 0 --max-replicas 0 \
+              --query "properties.template.scale" -o json
+            echo "::endgroup::"
+          done
+
+      - name: Stop PostgreSQL Flexible Server
+        run: |
+          STATE=$(az postgres flexible-server show -g "$RG" -n "$PG_NAME" --query state -o tsv)
+          echo "Current state: $STATE"
+          if [ "$STATE" = "Ready" ]; then
+            az postgres flexible-server stop -g "$RG" -n "$PG_NAME"
+            echo "Stopped."
+          else
+            echo "Already stopped or transitioning, skipping."
+          fi
+
+      - name: Summary
+        run: |
+          echo "### Stop completed $(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- PostgreSQL: $PG_NAME → Stopped" >> $GITHUB_STEP_SUMMARY
+          echo "- Container Apps: $ACA_API, $ACA_WEB → 0/0 replicas" >> $GITHUB_STEP_SUMMARY
