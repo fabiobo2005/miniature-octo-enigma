@@ -5,6 +5,25 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ---
 
+## v8.3 · 2026-05-20 · Security: gate admin + CORS restrito
+
+### Backend
+- Adicionado `cors` middleware com whitelist via env `ALLOWED_ORIGINS` (CSV).
+  Origem desconhecida → request bloqueado (sem `Access-Control-Allow-Origin`).
+- `/api/db/inspect` protegido por header `X-Admin-Secret` (ou query `?key=`).
+  Sem env `ADMIN_SECRET`: retorna 404 (rota efetivamente oculta).
+  Com env mas sem header válido: 401.
+
+### Frontend (nginx)
+- `/db.html` agora retorna 404 a menos que `X-Admin-Secret` corresponda à env `ADMIN_SECRET`.
+- `entrypoint.sh` gera mapa nginx `$admin_unlock` em tempo de boot.
+
+### Notas
+- Issues GitHub #1 e #2 fechadas por este release.
+- Env vars `ADMIN_SECRET` setada nos 2 ACAs; `ALLOWED_ORIGINS` no API.
+
+---
+
 ## v8.2 · 2026-05-20 · DevOps: schedule de stop/start para otimização de custo
 
 ### DevOps
