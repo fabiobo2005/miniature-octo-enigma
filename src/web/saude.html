@@ -36,9 +36,14 @@
     </div>
   </div>
 
-  <div class="hero">
-    <p class="lbl">Peso atual</p>
+  <div class="hero hero-saude">
+    <div class="heroHead">
+      <p class="lbl">Peso atual</p>
+      <span class="heroDelta" id="heroDelta" hidden></span>
+    </div>
     <div class="big"><span id="todayWeight">—</span><small> kg</small></div>
+    <div class="heroChartBox"><canvas id="chWeight"></canvas></div>
+    <div class="heroMetrics" id="heroMetrics"></div>
     <div class="row">
       <div class="stat"><b id="todaySupps">0</b><span>suplementos hoje</span></div>
       <div class="stat"><b id="streak">0d</b><span>sequência</span></div>
@@ -60,37 +65,29 @@
     <h2>⚖️ Nova medição</h2>
     <div class="row2">
       <div class="field"><label>Data</label><input type="date" id="iData"></div>
-      <div class="field"><label>Peso (kg)</label><input type="number" id="iPeso" step="0.1" placeholder="82.5"></div>
+      <div class="field"><label>Peso (kg)</label><input type="number" id="iPeso" step="0.1" inputmode="decimal" placeholder="82.5"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>% Gordura</label><input type="number" id="iBF" step="0.1" placeholder="18.2"></div>
-      <div class="field"><label>Massa Muscular (kg)</label><input type="number" id="iMM" step="0.1" placeholder="62.0"></div>
+      <div class="field"><label>% Gordura</label><input type="number" id="iBF" step="0.1" inputmode="decimal" placeholder="18.2"></div>
+      <div class="field"><label>Massa Muscular (kg)</label><input type="number" id="iMM" step="0.1" inputmode="decimal" placeholder="62.0"></div>
     </div>
-    <details>
-      <summary style="cursor:pointer;font-size:13px;color:var(--pri-d);font-weight:600;margin-bottom:10px">+ Métricas RelaxFit (opcional)</summary>
-      <div class="row2">
-        <div class="field"><label>Visceral</label><input type="number" id="iVisc" step="1"></div>
-        <div class="field"><label>% Água</label><input type="number" id="iAgua" step="0.1"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>% Músc Esq</label><input type="number" id="iMskel" step="0.1"></div>
-        <div class="field"><label>% Subcut</label><input type="number" id="iGsub" step="0.1"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>Massa Óssea</label><input type="number" id="iOsso" step="0.1"></div>
-        <div class="field"><label>% Proteína</label><input type="number" id="iProt" step="0.1"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label>TMB (kcal)</label><input type="number" id="iTmb" step="1"></div>
-        <div class="field"><label>Idade corporal</label><input type="number" id="iIdade" step="1"></div>
-      </div>
-    </details>
+    <div class="row2">
+      <div class="field"><label>Visceral</label><input type="number" id="iVisc" step="1" inputmode="numeric"></div>
+      <div class="field"><label>% Água</label><input type="number" id="iAgua" step="0.1" inputmode="decimal"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>% Músc Esq</label><input type="number" id="iMskel" step="0.1" inputmode="decimal"></div>
+      <div class="field"><label>% Subcut</label><input type="number" id="iGsub" step="0.1" inputmode="decimal"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Massa Óssea</label><input type="number" id="iOsso" step="0.1" inputmode="decimal"></div>
+      <div class="field"><label>% Proteína</label><input type="number" id="iProt" step="0.1" inputmode="decimal"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>TMB (kcal)</label><input type="number" id="iTmb" step="1" inputmode="numeric"></div>
+      <div class="field"><label>Idade corporal</label><input type="number" id="iIdade" step="1" inputmode="numeric"></div>
+    </div>
     <button class="btn full" onclick="addEvol()">Registrar medição</button>
-  </div>
-
-  <div class="card">
-    <h2>📈 Evolução do peso</h2>
-    <div class="chartBox"><canvas id="chWeight"></canvas></div>
   </div>
 
   <div class="card">
@@ -118,18 +115,21 @@
 <div class="modal" id="supModal">
   <div class="modalH">
     <b id="supModalTitle">Novo suplemento</b>
-    <button class="x" onclick="closeAll()">×</button>
+    <button class="x" onclick="closeAll()" aria-label="Fechar">×</button>
   </div>
   <input type="hidden" id="supId">
-  <div class="row2">
-    <div class="field"><label>Ícone</label><input type="text" id="supIcon" placeholder="💊" maxlength="4"></div>
-    <div class="field"><label>Cor</label><input type="color" id="supColor" value="#7BC4A4"></div>
-  </div>
   <div class="field"><label>Nome</label><input type="text" id="supName" placeholder="Ex: Vitamina D3"></div>
   <div class="field"><label>Dose</label><input type="text" id="supDose" placeholder="Ex: 5.000 UI"></div>
+  <div class="field"><label>Cor identificadora</label><input type="color" id="supColor" value="#7BC4A4" class="colorInput"></div>
   <div class="field">
-    <label>Horários (separados por vírgula)</label>
-    <input type="text" id="supSchedule" placeholder="08:00,22:30">
+    <label>Horários de uso</label>
+    <div class="timeChips" id="timeChips" aria-live="polite"></div>
+    <div class="timeAdd">
+      <input type="time" id="timeNew" step="60">
+      <button type="button" class="btn ghost btn-sm" onclick="addTimeChip()">+ Adicionar horário</button>
+    </div>
+    <input type="hidden" id="supSchedule">
+    <p class="small" style="margin:6px 2px 0">Toque em um horário para remover.</p>
   </div>
   <div class="field"><label>Notas (opcional)</label><textarea id="supNotes" rows="2"></textarea></div>
   <div style="display:flex;gap:8px;margin-top:8px">
