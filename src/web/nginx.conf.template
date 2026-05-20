@@ -9,6 +9,13 @@ server {
 
   location = /healthz { return 200 'ok'; add_header Content-Type text/plain; }
 
+  # Admin-only inspector: requires X-Admin-Secret header matching ADMIN_SECRET env.
+  # If ADMIN_SECRET is empty, returns 404 (hides the page entirely).
+  location = /db.html {
+    if ($admin_unlock != "1") { return 404; }
+    try_files $uri =404;
+  }
+
   location /api/ {
     proxy_pass https://API_HOST_PLACEHOLDER/api/;
     proxy_http_version 1.1;
