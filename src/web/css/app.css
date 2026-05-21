@@ -89,7 +89,11 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .hubCard{width:100%;text-align:left;background:var(--surf);border:1px solid var(--line);
   border-radius:24px;padding:22px;box-shadow:var(--shadow);cursor:pointer;
   display:flex;gap:16px;align-items:center;transition:transform .15s, box-shadow .15s;
-  color:var(--txt);font:inherit;min-height:120px;text-decoration:none}
+  color:var(--txt);font:inherit;min-height:120px;text-decoration:none;position:relative;isolation:isolate}
+/* Garante que qualquer clique em qualquer ponto interno do card seja capturado pelo <a>.
+   Sem isso, algum descendente (ex: <p> + <b> com layout de bloco aninhado) pode "engolir"
+   o hit-test e a navegação só acontece sobre certas áreas (sintoma observado no card Dieta). */
+.hubCard > *, .hubCard > * *{pointer-events:none}
 .hubCard:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(60,120,90,.16)}
 .hubCard:active{transform:translateY(0)}
 .hubIco{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;

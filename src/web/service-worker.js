@@ -1,5 +1,5 @@
-// APEX Service Worker — v9 (P0 cleanup: notifFired scope, infra envs)
-const CACHE = 'apex-v9';
+// APEX Service Worker — v10 (hub card click area fix)
+const CACHE = 'apex-v10';
 const PRECACHE = ['/css/app.css', '/manifest.webmanifest'];
 
 // HTML/JS: network-first (evita servir versão antiga após deploy)
