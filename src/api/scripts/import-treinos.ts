@@ -6,6 +6,23 @@
 //   npm run import:treinos -- --dry-run            (parseia e mostra estatísticas; não grava)
 //   npm run import:treinos -- --force              (reimporta mesmo se sha256 já success)
 //   npm run import:treinos -- --no-seed            (não carrega aliases.json no início)
+//   npm run import:treinos -- --nivel <iniciante|intermediario|avancado>
+//                                                   (sobrescreve a classificação para TODOS
+//                                                    os arquivos do run; útil com --file)
+//
+// Classificação de programas
+//   A classificação (nivel) é OBRIGATÓRIA. O importer aplica uma heurística baseada em:
+//     - Métodos avançados detectados (drop-set, ondulatório, excêntrico, bi-set, tri-set,
+//       ponto zero, série de saída, reconhecimento, exaustão, TUT alto, repetições forçadas)
+//     - Exercícios complexos (Levantamento Terra, Agachamento Hack/Pêndulo, Flexão Nórdica,
+//       Barra Fixa, Agachamento Livre, Stiff)
+//   Limiar: score >= 8 → avancado, >= 4 → intermediario, senão iniciante.
+//   --nivel sobrepõe a heurística.
+//
+// Nomes (padrão obrigatório):
+//   "Programa Iniciante I", "Programa Intermediário II", "Programa Avançado III", ...
+//   Numerais romanos atribuídos por categoria, considerando programas já existentes no DB
+//   (idempotência preservada via lookup por source_sha256).
 //
 // Padrão de planilha (validado nos 6 arquivos do projeto):
 //   - Cada SHEET corresponde a uma cor (Amarelo, Verde, Vermelho, Azul, Laranja, ...).
@@ -32,7 +49,16 @@ type Args = {
   dryRun: boolean;
   force: boolean;
   seed: boolean;
+  nivelOverride?: Nivel;
 };
+
+type Nivel = 'iniciante' | 'intermediario' | 'avancado';
+const NIVEL_LABEL: Record<Nivel, string> = {
+  iniciante: 'Iniciante',
+  intermediario: 'Intermediário',
+  avancado: 'Avançado',
+};
+const NIVEL_VALUES: ReadonlySet<Nivel> = new Set(['iniciante','intermediario','avancado'] as const);
 
 function parseArgs(argv: string[]): Args {
   const a: Args = { dryRun: false, force: false, seed: true };
@@ -43,8 +69,16 @@ function parseArgs(argv: string[]): Args {
     else if (arg === '--dry-run' || arg === '-n') a.dryRun = true;
     else if (arg === '--force' || arg === '-f') a.force = true;
     else if (arg === '--no-seed') a.seed = false;
+    else if (arg === '--nivel') {
+      const v = String(argv[++i] || '').toLowerCase() as Nivel;
+      if (!NIVEL_VALUES.has(v)) {
+        console.error(`--nivel inválido: "${v}". Use: iniciante | intermediario | avancado`);
+        process.exit(2);
+      }
+      a.nivelOverride = v;
+    }
     else if (arg === '--help' || arg === '-h') {
-      console.log('Uso: npm run import:treinos -- [--dir <dir>] [--file <xlsx>] [--dry-run] [--force] [--no-seed]');
+      console.log('Uso: npm run import:treinos -- [--dir <dir>] [--file <xlsx>] [--dry-run] [--force] [--no-seed] [--nivel iniciante|intermediario|avancado]');
       process.exit(0);
     }
   }
@@ -76,8 +110,9 @@ function sha256OfFile(p: string): string {
 }
 
 function programNameFromFile(file: string): string {
+  // Mantido apenas como nome "bruto" / fallback. O nome real do programa é
+  // calculado a partir da classificação (Programa <Categoria> <Roman>).
   const base = basename(file).replace(/\.xlsx$/i, '').trim();
-  // Cosmetic: "JANEIRO2026" -> "Janeiro 2026"; preserva o original quando já bem formatado.
   const m = base.match(/^([A-Za-zçãáéíóúâêôûÇÃÁÉÍÓÚÂÊÔÛ]+)(\d{4})$/);
   if (m) {
     const mes = m[1].toLowerCase();
@@ -85,6 +120,88 @@ function programNameFromFile(file: string): string {
     return `${Cap} ${m[2]}`;
   }
   return base;
+}
+
+// ---------- Classificação ----------
+const ADV_METHOD_PATTERNS: RegExp[] = [
+  /\bdrop[\s-]?set\b/i,
+  /\bondulat[óo]ri/i,
+  /\bexc[êe]ntric/i,
+  /\bbi[\s-]?set\b/i,
+  /\btri[\s-]?set\b/i,
+  /\bponto\s*zero\b/i,
+  /\bs[ée]rie\s+de\s+sa[íi]da\b/i,
+  /\breconhecimento\b/i,
+  /\bexaust[ãa]o\b/i,
+  /\btut\s*[>≥]/i,
+  /\brepeti[cç][oõ]es?\s+for[cç]adas\b/i,
+  /\brest[\s-]?pause\b/i,
+  /\bpico\s+de\s+contra[cç][ãa]o\b/i,
+];
+const ADV_EXERCISE_PATTERNS: RegExp[] = [
+  /levantamento\s+terra|deadlift/i,
+  /agachamento\s+(hack|p[êe]ndulo|livre)/i,
+  /flex[ãa]o\s+n[óo]rdica|nordic\s+curl/i,
+  /\bbarra\s+fixa\b/i,
+  /\bstiff\b/i,
+  /paralela|mergulho\s+paralelas?/i,
+  /push\s*up\s*trx/i,
+];
+
+type Signals = {
+  methods: Set<string>;
+  exercises: Set<string>;
+  totalExercises: number;
+  totalTemplates: number;
+  hasCardio: boolean;
+};
+
+function collectSignals(parsed: ParsedFile): Signals {
+  const methods = new Set<string>();
+  const exercises = new Set<string>();
+  let total = 0;
+  for (const t of parsed.templates) {
+    for (const ex of t.exercicios) {
+      total++;
+      const haystack = `${ex.nome_original} ${ex.metodo ?? ''} ${ex.observacoes ?? ''}`;
+      for (const rx of ADV_METHOD_PATTERNS) if (rx.test(haystack)) methods.add(rx.source);
+      for (const rx of ADV_EXERCISE_PATTERNS) if (rx.test(ex.nome_original)) exercises.add(rx.source);
+    }
+  }
+  return {
+    methods, exercises,
+    totalExercises: total,
+    totalTemplates: parsed.templates.length,
+    hasCardio: parsed.cardios.length > 0,
+  };
+}
+
+function classify(parsed: ParsedFile): { nivel: Nivel; score: number; signals: Signals } {
+  const sig = collectSignals(parsed);
+  const score = (sig.methods.size * 2) + sig.exercises.size + (sig.hasCardio ? 2 : 0);
+  let nivel: Nivel;
+  if (score >= 8) nivel = 'avancado';
+  else if (score >= 4) nivel = 'intermediario';
+  else nivel = 'iniciante';
+  return { nivel, score, signals: sig };
+}
+
+// ---------- Romanos ----------
+const ROMAN_TABLE: ReadonlyArray<readonly [number, string]> = [
+  [100,'C'],[90,'XC'],[50,'L'],[40,'XL'],
+  [10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']
+];
+function toRoman(n: number): string {
+  if (!Number.isInteger(n) || n <= 0) throw new Error(`romano inválido: ${n}`);
+  let s = ''; let x = n;
+  for (const [v, sym] of ROMAN_TABLE) { while (x >= v) { s += sym; x -= v; } }
+  return s;
+}
+function isProgramName(name: string): boolean {
+  return /^Programa\s+(Iniciante|Intermedi[áa]rio|Avan[çc]ado)(\s+[IVXLC]+)?$/.test(name);
+}
+function programNameFor(nivel: Nivel, roman: string): string {
+  return `Programa ${NIVEL_LABEL[nivel]} ${roman}`;
 }
 
 // Excel armazena "cadência" como fração de dia (time). Converte para "HH:MM:SS" legível.
@@ -343,15 +460,23 @@ type ImportStats = {
   rows_read: number;
   rows_imported: number;
   program_id?: number;
+  program_nome?: string;
+  nivel?: Nivel;
   warnings: string[];
 };
 
-async function persist(parsed: ParsedFile, opts: { force: boolean }): Promise<ImportStats> {
+async function persist(
+  parsed: ParsedFile,
+  decision: { nome: string; nivel: Nivel },
+  opts: { force: boolean }
+): Promise<ImportStats> {
   const stats: ImportStats = {
     file: parsed.fileName,
     status: 'success',
     rows_read: parsed.templates.reduce((a, t) => a + t.exercicios.length, 0) + parsed.cardios.length,
     rows_imported: 0,
+    program_nome: decision.nome,
+    nivel: decision.nivel,
     warnings: [...parsed.warnings],
   };
 
@@ -381,19 +506,39 @@ async function persist(parsed: ParsedFile, opts: { force: boolean }): Promise<Im
 
       const duracaoSemanas = Math.max(1, ...parsed.templates.map(t => t.semana_numero));
 
-      // UPSERT program (unique por nome)
-      const program = (await c.query(
-        `INSERT INTO treinos.program (nome, objetivo, duracao_semanas, nivel, source_file, source_sha256)
-         VALUES ($1, NULL, $2, NULL, $3, $4)
-         ON CONFLICT (nome) DO UPDATE
-            SET duracao_semanas = EXCLUDED.duracao_semanas,
-                source_file     = EXCLUDED.source_file,
-                source_sha256   = EXCLUDED.source_sha256,
-                updated_at      = now()
-         RETURNING id`,
-        [parsed.programNome, duracaoSemanas, parsed.fileName, parsed.sha256]
+      // Estratégia idempotente: localiza por source_sha256 (mesmo conteúdo),
+      // depois cai para UPSERT por nome. Isso permite RENOMEAR programas
+      // existentes (ex.: migração para o padrão "Programa <Cat> <Roman>")
+      // sem criar duplicatas.
+      let programId: number;
+      const bySha = (await c.query(
+        `SELECT id FROM treinos.program WHERE source_sha256 = $1 LIMIT 1`,
+        [parsed.sha256]
       )).rows[0];
-      const programId = program.id as number;
+      if (bySha) {
+        programId = bySha.id as number;
+        await c.query(
+          `UPDATE treinos.program
+              SET nome = $2, nivel = $3, duracao_semanas = $4,
+                  source_file = $5, updated_at = now()
+            WHERE id = $1`,
+          [programId, decision.nome, decision.nivel, duracaoSemanas, parsed.fileName]
+        );
+      } else {
+        const ins = await c.query(
+          `INSERT INTO treinos.program (nome, nivel, duracao_semanas, source_file, source_sha256)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (nome) DO UPDATE
+              SET nivel           = EXCLUDED.nivel,
+                  duracao_semanas = EXCLUDED.duracao_semanas,
+                  source_file     = EXCLUDED.source_file,
+                  source_sha256   = EXCLUDED.source_sha256,
+                  updated_at      = now()
+           RETURNING id`,
+          [decision.nome, decision.nivel, duracaoSemanas, parsed.fileName, parsed.sha256]
+        );
+        programId = ins.rows[0].id as number;
+      }
       stats.program_id = programId;
 
       // UPSERT semanas
@@ -622,6 +767,7 @@ async function main() {
     process.exit(2);
   }
   console.log(`Importer de Treinos — modo: ${args.dryRun ? 'DRY-RUN' : 'PERSIST'}, force=${args.force}, seed=${args.seed}`);
+  if (args.nivelOverride) console.log(`  override de nível: ${args.nivelOverride}`);
   console.log(`Arquivos: ${files.length}`);
   for (const f of files) console.log(`  - ${basename(f)}`);
 
@@ -632,48 +778,161 @@ async function main() {
     }
   }
 
-  const allStats: ImportStats[] = [];
+  // ---- Pass 1: parse + classifica todos os arquivos ----
+  type Item = {
+    file: string;
+    parsed?: ParsedFile;
+    parseError?: string;
+    nivel?: Nivel;
+    score?: number;
+    signals?: Signals;
+    existingId?: number;
+    existingRoman?: string;
+    decidedName?: string;
+  };
+  const items: Item[] = [];
   for (const f of files) {
     console.log(`\n=== ${basename(f)} ===`);
-    let parsed: ParsedFile;
+    const it: Item = { file: f };
     try {
-      parsed = parseFile(f);
+      it.parsed = parseFile(f);
     } catch (e: any) {
       console.error(`ERRO no parse: ${e?.message || e}`);
-      allStats.push({ file: basename(f), status: 'failed', rows_read: 0, rows_imported: 0, warnings: [String(e?.message || e)] });
+      it.parseError = String(e?.message || e);
+      items.push(it);
       continue;
     }
-
-    console.log(`  programa: "${parsed.programNome}" (sha256 ${parsed.sha256.slice(0,12)}…)`);
-    console.log(`  templates: ${parsed.templates.length} | exercícios: ${parsed.templates.reduce((a,t)=>a+t.exercicios.length,0)} | cardios: ${parsed.cardios.length}`);
-    if (parsed.warnings.length) {
-      console.log(`  warnings (${parsed.warnings.length}):`);
-      for (const w of parsed.warnings.slice(0, 10)) console.log(`    · ${w}`);
-      if (parsed.warnings.length > 10) console.log(`    · …+${parsed.warnings.length-10} mais`);
+    const cls = classify(it.parsed);
+    it.nivel = args.nivelOverride ?? cls.nivel;
+    it.score = cls.score;
+    it.signals = cls.signals;
+    console.log(`  arquivo: "${it.parsed.programNome}" (sha256 ${it.parsed.sha256.slice(0,12)}…)`);
+    console.log(`  templates: ${it.parsed.templates.length} | exercícios: ${it.parsed.templates.reduce((a,t)=>a+t.exercicios.length,0)} | cardios: ${it.parsed.cardios.length}`);
+    console.log(`  classificação: ${it.nivel} (score=${cls.score}; métodos=${cls.signals.methods.size}, ex.avançados=${cls.signals.exercises.size})${args.nivelOverride ? ' [override]' : ''}`);
+    if (it.parsed.warnings.length) {
+      console.log(`  warnings (${it.parsed.warnings.length}):`);
+      for (const w of it.parsed.warnings.slice(0, 10)) console.log(`    · ${w}`);
+      if (it.parsed.warnings.length > 10) console.log(`    · …+${it.parsed.warnings.length-10} mais`);
     }
+    items.push(it);
+  }
+
+  // ---- Pass 2: atribuir romanos por categoria, respeitando o DB ----
+  // Buscamos no DB:
+  //   - mapping sha256 -> {id, nome, nivel}  para PRESERVAR o romano de um programa
+  //     já existente que continua na mesma categoria.
+  //   - lista de romanos já usados em CADA categoria (para não colidir).
+  type ExistingByCat = { roman: number; nivel: Nivel };
+  const existingBySha = new Map<string, { id: number; nome: string; nivel: Nivel }>();
+  const usedRomanByNivel: Record<Nivel, Set<number>> = {
+    iniciante: new Set(), intermediario: new Set(), avancado: new Set(),
+  };
+  if (!args.dryRun) {
+    const shas = items.map(i => i.parsed?.sha256).filter(Boolean) as string[];
+    if (shas.length) {
+      const r = await withClient(async (c) => c.query(
+        `SELECT id, nome, nivel, source_sha256 FROM treinos.program WHERE source_sha256 = ANY($1::text[])`,
+        [shas]
+      ));
+      for (const row of r.rows) {
+        existingBySha.set(row.source_sha256, { id: row.id, nome: row.nome, nivel: row.nivel });
+      }
+    }
+    const all = await withClient(async (c) => c.query(
+      `SELECT nome, nivel FROM treinos.program`
+    ));
+    for (const row of all.rows) {
+      const m = String(row.nome).match(/^Programa\s+(?:Iniciante|Intermedi[áa]rio|Avan[çc]ado)\s+([IVXLC]+)$/);
+      if (m && (row.nivel as Nivel) in usedRomanByNivel) {
+        const n = romanToInt(m[1]);
+        if (n) usedRomanByNivel[row.nivel as Nivel].add(n);
+      }
+    }
+  }
+
+  // 2.a) reusa romano para arquivos já existentes na MESMA categoria
+  const usedThisRun: Record<Nivel, Set<number>> = {
+    iniciante: new Set(), intermediario: new Set(), avancado: new Set(),
+  };
+  for (const it of items) {
+    if (!it.parsed || !it.nivel) continue;
+    const existing = existingBySha.get(it.parsed.sha256);
+    if (!existing) continue;
+    const m = existing.nome.match(/^Programa\s+(?:Iniciante|Intermedi[áa]rio|Avan[çc]ado)\s+([IVXLC]+)$/);
+    if (m && existing.nivel === it.nivel) {
+      const n = romanToInt(m[1]);
+      if (n && !usedThisRun[it.nivel].has(n)) {
+        usedThisRun[it.nivel].add(n);
+        it.existingId = existing.id;
+        it.decidedName = programNameFor(it.nivel, toRoman(n));
+      }
+    } else {
+      // mudou de categoria; trataremos abaixo
+      it.existingId = existing.id;
+    }
+  }
+
+  // 2.b) atribui o próximo romano livre para os demais
+  for (const it of items) {
+    if (!it.parsed || !it.nivel || it.decidedName) continue;
+    const used = new Set<number>([...usedRomanByNivel[it.nivel], ...usedThisRun[it.nivel]]);
+    let n = 1; while (used.has(n)) n++;
+    usedThisRun[it.nivel].add(n);
+    it.decidedName = programNameFor(it.nivel, toRoman(n));
+  }
+
+  // ---- Pass 3: persistir ----
+  const allStats: ImportStats[] = [];
+  for (const it of items) {
+    const fn = basename(it.file);
+    if (it.parseError || !it.parsed || !it.nivel || !it.decidedName) {
+      allStats.push({ file: fn, status: 'failed', rows_read: 0, rows_imported: 0, warnings: [it.parseError ?? 'classificação ausente'] });
+      continue;
+    }
+    console.log(`\n--> ${fn}: "${it.decidedName}" [${it.nivel}]`);
 
     if (args.dryRun) {
-      allStats.push({ file: basename(f), status: 'success', rows_read: parsed.templates.reduce((a,t)=>a+t.exercicios.length,0), rows_imported: 0, warnings: parsed.warnings });
+      allStats.push({
+        file: fn, status: 'success',
+        rows_read: it.parsed.templates.reduce((a,t)=>a+t.exercicios.length,0),
+        rows_imported: 0,
+        program_nome: it.decidedName,
+        nivel: it.nivel,
+        warnings: it.parsed.warnings,
+      });
       continue;
     }
 
     try {
-      const st = await persist(parsed, { force: args.force });
+      const st = await persist(it.parsed, { nome: it.decidedName, nivel: it.nivel }, { force: args.force });
       console.log(`  -> status=${st.status}, importados=${st.rows_imported}, program_id=${st.program_id ?? '-'}`);
       allStats.push(st);
     } catch (e: any) {
       console.error(`  -> ERRO: ${e?.message || e}`);
-      allStats.push({ file: basename(f), status: 'failed', rows_read: 0, rows_imported: 0, warnings: [String(e?.message || e)] });
+      allStats.push({ file: fn, status: 'failed', rows_read: 0, rows_imported: 0, warnings: [String(e?.message || e)] });
     }
   }
 
   console.log('\n========== RESUMO ==========');
   for (const s of allStats) {
-    console.log(`  ${s.status.padEnd(8)} ${String(s.rows_imported).padStart(5)} linhas | ${s.file}`);
+    const tag = s.program_nome ? `${s.program_nome} [${s.nivel}]` : '-';
+    console.log(`  ${s.status.padEnd(8)} ${String(s.rows_imported).padStart(5)} linhas | ${s.file}  ${tag}`);
   }
   const failed = allStats.filter(s => s.status === 'failed').length;
   await endPool();
   process.exit(failed > 0 ? 1 : 0);
+}
+
+function romanToInt(s: string): number | null {
+  const map: Record<string, number> = { I:1, V:5, X:10, L:50, C:100 };
+  let total = 0;
+  for (let i = 0; i < s.length; i++) {
+    const v = map[s[i]]; const next = map[s[i+1]];
+    if (!v) return null;
+    if (next && next > v) { total += (next - v); i++; }
+    else total += v;
+  }
+  return total > 0 ? total : null;
 }
 
 main().catch(async (e) => {

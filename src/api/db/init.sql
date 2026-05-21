@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS treinos.program (
   nome              TEXT NOT NULL,
   objetivo          TEXT,
   duracao_semanas   INTEGER NOT NULL CHECK (duracao_semanas BETWEEN 1 AND 52),
-  nivel             TEXT CHECK (nivel IN ('iniciante','intermediario','avancado')),
+  nivel             TEXT NOT NULL CHECK (nivel IN ('iniciante','intermediario','avancado')),
   autor_user_id     UUID REFERENCES app.user(id) ON DELETE SET NULL,
   source_file       TEXT,
   source_sha256     TEXT,
@@ -394,3 +394,19 @@ END $tg$;
 INSERT INTO app.schema_migrations(version)
   VALUES ('v8-programas-treino')
   ON CONFLICT (version) DO NOTHING;
+
+-- ============================================================================
+-- MIGRATION v8.1-program-nivel-not-null
+-- Torna treinos.program.nivel obrigatório. A classificação passa a ser
+-- mandatória no importer (iniciante / intermediario / avancado).
+-- ============================================================================
+DO $mig$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='v8.1-program-nivel-not-null') THEN
+    -- Caso existam linhas legadas com nivel NULL, classifica como 'intermediario'
+    -- por segurança; o importer reclassificará no próximo run.
+    UPDATE treinos.program SET nivel = 'intermediario' WHERE nivel IS NULL;
+    ALTER TABLE treinos.program ALTER COLUMN nivel SET NOT NULL;
+    INSERT INTO app.schema_migrations(version) VALUES ('v8.1-program-nivel-not-null');
+  END IF;
+END $mig$;

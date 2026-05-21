@@ -22,7 +22,39 @@ npm run import:treinos -- --force
 
 # Não carrega scripts/aliases.json (apenas usa o catálogo já presente)
 npm run import:treinos -- --no-seed
+
+# Sobrescreve a classificação automática para TODOS os arquivos do run
+npm run import:treinos -- --file ./Maio2026.xlsx --nivel avancado
 ```
+
+## Nomes e classificação de programas
+
+A classificação (`nivel`) é **obrigatória** — a coluna `treinos.program.nivel`
+é `NOT NULL` (migração `v8.1-program-nivel-not-null`). O importer aplica uma
+heurística automática baseada em **métodos avançados** (drop-set, ondulatório,
+excêntrico, bi-set, tri-set, ponto zero, série de saída, reconhecimento,
+exaustão, rest-pause, TUT, repetições forçadas) e **exercícios complexos**
+(Levantamento Terra, Agachamento Hack/Pêndulo/Livre, Flexão Nórdica, Barra
+Fixa, Stiff, Paralelas). Score:
+
+- `>= 8` → **avancado**
+- `>= 4` → **intermediario**
+- `<  4` → **iniciante**
+
+Use `--nivel iniciante|intermediario|avancado` para forçar a classificação.
+
+Os programas são **renomeados** para o padrão:
+
+```
+Programa <Categoria> <Romano>
+  ex.: Programa Iniciante I
+       Programa Intermediário II
+       Programa Avançado III
+```
+
+A numeração romana é atribuída por categoria, considerando programas já
+existentes no banco (idempotência preservada via lookup por `source_sha256`:
+reimportar o mesmo arquivo mantém o id e o romano originais).
 
 ## Variáveis de ambiente para conexão ao banco
 
@@ -38,8 +70,9 @@ Em ordem de prioridade:
 - `treinos.import_run` registra cada execução com o `source_sha256` do arquivo.
   Quando `status='success'`, esse hash fica único — uma segunda execução é
   reportada como `skipped`. Use `--force` para reimportar.
-- `treinos.program.nome` é único; reimportar atualiza `duracao_semanas`,
-  `source_file` e `source_sha256`.
+- `treinos.program` é localizado primeiro por `source_sha256` (preserva id) e
+  depois por `nome` (UPSERT). Reimportar o mesmo arquivo atualiza
+  `nivel`, `duracao_semanas`, `source_file` e `source_sha256`.
 - `treinos.workout_template` tem UNIQUE em
   `(program_id, semana_numero, cor, nome_treino)`.
 - As prescrições do template são **substituídas** a cada reimportação
