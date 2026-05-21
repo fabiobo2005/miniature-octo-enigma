@@ -109,19 +109,6 @@ function sha256OfFile(p: string): string {
   return h.digest('hex');
 }
 
-function programNameFromFile(file: string): string {
-  // Mantido apenas como nome "bruto" / fallback. O nome real do programa é
-  // calculado a partir da classificação (Programa <Categoria> <Roman>).
-  const base = basename(file).replace(/\.xlsx$/i, '').trim();
-  const m = base.match(/^([A-Za-zçãáéíóúâêôûÇÃÁÉÍÓÚÂÊÔÛ]+)(\d{4})$/);
-  if (m) {
-    const mes = m[1].toLowerCase();
-    const Cap = mes.charAt(0).toUpperCase() + mes.slice(1);
-    return `${Cap} ${m[2]}`;
-  }
-  return base;
-}
-
 // ---------- Classificação ----------
 const ADV_METHOD_PATTERNS: RegExp[] = [
   /\bdrop[\s-]?set\b/i,
@@ -269,7 +256,6 @@ type ParsedFile = {
   filePath: string;
   fileName: string;
   sha256: string;
-  programNome: string;
   templates: ParsedTemplate[];
   cardios: ParsedCardio[];
   warnings: string[];
@@ -419,7 +405,6 @@ function parseFile(filePath: string): ParsedFile {
   const sha = sha256OfFile(filePath);
   const wb = XLSX.readFile(filePath, { cellDates: false });
 
-  const programNome = programNameFromFile(filePath);
   const templates: ParsedTemplate[] = [];
   const cardios: ParsedCardio[] = [];
   const warnings: string[] = [];
@@ -450,7 +435,7 @@ function parseFile(filePath: string): ParsedFile {
     }
   }
 
-  return { filePath, fileName, sha256: sha, programNome, templates, cardios, warnings };
+  return { filePath, fileName, sha256: sha, templates, cardios, warnings };
 }
 
 // ---------- Persistência ----------
@@ -806,7 +791,7 @@ async function main() {
     it.nivel = args.nivelOverride ?? cls.nivel;
     it.score = cls.score;
     it.signals = cls.signals;
-    console.log(`  arquivo: "${it.parsed.programNome}" (sha256 ${it.parsed.sha256.slice(0,12)}…)`);
+    console.log(`  arquivo-fonte: ${basename(it.parsed.fileName)} (sha256 ${it.parsed.sha256.slice(0,12)}…)`);
     console.log(`  templates: ${it.parsed.templates.length} | exercícios: ${it.parsed.templates.reduce((a,t)=>a+t.exercicios.length,0)} | cardios: ${it.parsed.cardios.length}`);
     console.log(`  classificação: ${it.nivel} (score=${cls.score}; métodos=${cls.signals.methods.size}, ex.avançados=${cls.signals.exercises.size})${args.nivelOverride ? ' [override]' : ''}`);
     if (it.parsed.warnings.length) {
