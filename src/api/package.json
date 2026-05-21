@@ -7,7 +7,8 @@
     "build": "tsc",
     "watch": "tsc -w",
     "clean": "rimraf dist",
-    "start": "node dist/src/server.js"
+    "start": "node dist/src/server.js",
+    "import:treinos": "tsc && node dist/scripts/import-treinos.js"
   },
   "dependencies": {
     "@azure/identity": "^4.4.1",
@@ -15,6 +16,7 @@
     "cors": "^2.8.6",
     "express": "^4.21.0",
     "pg": "^8.13.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
