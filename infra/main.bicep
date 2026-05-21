@@ -36,8 +36,13 @@ param apiImage string = ''
 @description('Image tag/path for apex-web (set by azd after build)')
 param webImage string = ''
 
+@secure()
+@description('Shared admin secret. Gates /api/db/inspect and /db.html. Set via "azd env set ADMIN_SECRET <value>" or leave empty to disable inspector.')
+param adminSecret string = ''
+
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var rgName = 'rg-${environmentName}'
+var webAppName = 'ca-apex-web'
 
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: rgName
@@ -115,6 +120,8 @@ module acaApi 'modules/aca-api.bicep' = {
     pgHost: db.outputs.fqdn
     pgDatabase: db.outputs.databaseName
     pgUser: identity.outputs.name
+    allowedOrigins: 'https://${webAppName}.${acaEnv.outputs.defaultDomain}'
+    adminSecret: adminSecret
   }
   dependsOn: [ acrRole ]
 }
@@ -123,7 +130,7 @@ module acaWeb 'modules/aca-web.bicep' = {
   scope: rg
   name: 'acaWeb'
   params: {
-    name: 'ca-apex-web'
+    name: webAppName
     location: location
     tags: tags
     envId: acaEnv.outputs.id
@@ -131,6 +138,7 @@ module acaWeb 'modules/aca-web.bicep' = {
     userAssignedIdentityId: identity.outputs.id
     acrLoginServer: acr.outputs.loginServer
     apiInternalFqdn: acaApi.outputs.internalFqdn
+    adminSecret: adminSecret
   }
   dependsOn: [ acrRole ]
 }

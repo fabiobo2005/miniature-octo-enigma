@@ -121,7 +121,7 @@ async function logoutUser(){
   USER.clear();
   // limpa estado em memória que pode vazar entre perfis (notificações, timers)
   try { if (window._notifTimer) { clearInterval(window._notifTimer); window._notifTimer = null; } } catch {}
-  try { if (typeof notifFired !== 'undefined') notifFired.clear?.(); } catch {}
+  try { window.notifFired?.clear?.(); } catch {}
   // invalida caches do service worker para evitar servir bundles antigos após troca
   try {
     if ('serviceWorker' in navigator) {
