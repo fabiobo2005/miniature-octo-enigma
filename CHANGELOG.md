@@ -27,9 +27,12 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ### URLs
 - Prod: `https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`
-- Dev:  `https://ca-apex-web--dev.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`
+- Dev:  per-revision FQDN `https://ca-apex-web--dev-<sha>.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`
+  (impresso pelo Summary do workflow `deploy-dev.yml` a cada deploy)
 
 ### Notas
+- O labeled FQDN `ca-apex-web--dev.<domain>` retorna 404 no ingress do ACA neste env;
+  usamos per-revision FQDN. Promoção continua 100% baseada em swap de labels.
 - Postgres compartilhado entre stagings — migrations precisam ser backward-compatible.
 - Issue GitHub #13 fechada por este release.
 

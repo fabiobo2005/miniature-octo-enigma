@@ -92,15 +92,19 @@ jobs:
       - name: Summary
         run: |
           ENV_DOMAIN=$(az containerapp env show -g "$RG" -n $(az containerapp show -g "$RG" -n "$ACA_WEB" --query "properties.managedEnvironmentId" -o tsv | awk -F/ '{print $NF}') --query "properties.defaultDomain" -o tsv)
+          API_REV="${{ steps.dep_api.outputs.rev }}"
+          WEB_REV="${{ steps.dep_web.outputs.rev }}"
           {
             echo "### Dev deploy — ${{ steps.tag.outputs.tag }}"
             echo ""
             echo "| App | Revision | URL |"
             echo "|---|---|---|"
-            echo "| api (internal) | ${{ steps.dep_api.outputs.rev }} | https://${ACA_API}--dev.internal.${ENV_DOMAIN} |"
-            echo "| web (public)   | ${{ steps.dep_web.outputs.rev }} | https://${ACA_WEB}--dev.${ENV_DOMAIN} |"
+            echo "| api (internal) | ${API_REV} | https://${API_REV}.internal.${ENV_DOMAIN} |"
+            echo "| web (público)  | ${WEB_REV} | https://${WEB_REV}.${ENV_DOMAIN} |"
             echo ""
-            echo "**Tráfego público continua 100% prod.** Use o URL com \`--dev\` para validar."
+            echo "**URL pública dev** (per-revision, muda a cada deploy): https://${WEB_REV}.${ENV_DOMAIN}"
+            echo ""
+            echo "**Tráfego público continua 100% prod.** Use a URL acima para validar a nova revisão."
             echo ""
             echo "Para promover: rode o workflow [Promote · Prod](../../actions/workflows/promote-prod.yml)."
           } >> $GITHUB_STEP_SUMMARY

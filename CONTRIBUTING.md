@@ -28,10 +28,14 @@ gh pr create --base main --fill --body "Closes #<issue>"
 
 Os Container Apps rodam em `activeRevisionsMode: Multiple` com dois labels:
 
-| Label  | URL                                                                                              | Quem chega aqui |
-|--------|--------------------------------------------------------------------------------------------------|-----------------|
-| `prod` | `https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`                     | 100% do tráfego público |
-| `dev`  | `https://ca-apex-web--dev.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`                | Apenas quem usar a URL `--dev` |
+| Slot   | URL                                                                                              | Tráfego |
+|--------|--------------------------------------------------------------------------------------------------|---------|
+| `prod` | `https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`                     | 100% |
+| `dev`  | `https://ca-apex-web--<revision-suffix>.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`  | 0% — acesso direto |
+
+> **Nota:** a URL fixa `ca-apex-web--dev.<domain>` (labeled FQDN) é retornada 404 pelo
+> ingress do ACA neste env, então usamos a URL **per-revision** (gerada com sufixo
+> `dev-<sha>` a cada deploy). O workflow `deploy-dev.yml` imprime a URL no Summary.
 
 Limitação aceita: **Postgres é compartilhado entre dev e prod**. Migrations devem ser
 backward-compatible (expand → migrate → contract). Web em dev chama API em prod
