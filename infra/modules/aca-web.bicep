@@ -7,6 +7,10 @@ param userAssignedIdentityId string
 param acrLoginServer string
 param apiInternalFqdn string
 
+@secure()
+@description('Shared secret that gates /db.html via nginx. Empty = page returns 404 always.')
+param adminSecret string = ''
+
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
@@ -19,6 +23,12 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: envId
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: empty(adminSecret) ? [] : [
+        {
+          name: 'admin-secret'
+          value: adminSecret
+        }
+      ]
       ingress: {
         external: true
         targetPort: 80
@@ -38,9 +48,11 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'web'
           image: image
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
-          env: [
+          env: concat([
             { name: 'API_HOST', value: apiInternalFqdn }
-          ]
+          ], empty(adminSecret) ? [] : [
+            { name: 'ADMIN_SECRET', secretRef: 'admin-secret' }
+          ])
           probes: [
             {
               type: 'Liveness'

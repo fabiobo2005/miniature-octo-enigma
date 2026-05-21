@@ -1,5 +1,5 @@
-// APEX Service Worker — v8 (multiusuário)
-const CACHE = 'apex-v8';
+// APEX Service Worker — v9 (P0 cleanup: notifFired scope, infra envs)
+const CACHE = 'apex-v9';
 const PRECACHE = ['/css/app.css', '/manifest.webmanifest'];
 
 // HTML/JS: network-first (evita servir versão antiga após deploy)

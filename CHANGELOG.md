@@ -5,6 +5,36 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ---
 
+## v8.7 · 2026-05-21 · P0 cleanup: notifFired scope, SW v9, infra wiring CORS+ADMIN_SECRET
+
+### Frontend
+- **`src/web/js/saude.js`**: `notifFired` movido para `window.notifFired` (era `let` em
+  escopo de script — `core.js/logoutUser()` não conseguia limpar). Agora alarmes de
+  suplementos não vazam mais entre perfis ao trocar de usuário.
+- **`src/web/js/core.js`**: `logoutUser()` usa `window.notifFired?.clear?.()` (substitui
+  o `typeof notifFired` que sempre resolvia para `'undefined'` cross-script).
+- **`src/web/service-worker.js`**: cache bumpado `apex-v8` → `apex-v9` para invalidar JS antigo.
+
+### Infra (Bicep)
+- **`infra/modules/aca-api.bicep`**: novos params `allowedOrigins` (string) e `adminSecret`
+  (`@secure()`). Injetados como env vars na Container App; `ADMIN_SECRET` via secret ref.
+- **`infra/modules/aca-web.bicep`**: novo param `adminSecret` (`@secure()`) → env var
+  consumida pelo `entrypoint.sh` que monta o `map` do nginx para gate de `/db.html`.
+- **`infra/main.bicep`**: novo param top-level `adminSecret` (`@secure()`), propagado para
+  ambos os módulos. `ALLOWED_ORIGINS` é calculado a partir de
+  `https://ca-apex-web.${acaEnv.outputs.defaultDomain}` (sem ciclo de dependência).
+- **`infra/main.parameters.json`**: bind `adminSecret` ← `${ADMIN_SECRET=}` (vazio por padrão,
+  configurável via `azd env set ADMIN_SECRET <value>`).
+
+### Notas
+- Sem mudanças de schema/auth/API surface.
+- Após `azd up`/`azd deploy`, usuários web devem fazer **Ctrl+Shift+R** uma vez para
+  invalidar o SW `apex-v8`.
+- Para habilitar o `/api/db/inspect` e `/db.html` em prod: `azd env set ADMIN_SECRET <hex>`
+  e re-deploy. Sem essa env, inspector responde 404 (comportamento atual mantido).
+
+---
+
 ## v8.6 · 2026-05-20 · Dieta + Treinos: UI mobile-first (paridade com Saúde)
 
 ### Frontend — Dieta

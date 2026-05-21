@@ -280,7 +280,9 @@ async function reqNotifPermission(){
   else toast('Permissão negada',true);
   renderSaude();
 }
-let notifFired = new Set();
+// Exposto em window para permitir que core.js/logoutUser() limpe ao trocar de perfil
+// (alarmes Notification são globais por origin, vazariam entre usuários).
+window.notifFired = window.notifFired || new Set();
 function startNotifLoop(){
   if(window._notifTimer) return;
   window._notifTimer = setInterval(checkNotif, 30000);
@@ -296,8 +298,8 @@ async function checkNotif(){
       const key=`${s.id}-${tm}-${today}`;
       const [hh,mm]=tm.split(':').map(Number);
       const schedMin=hh*60+mm;
-      if(curMin>=schedMin && curMin-schedMin<=5 && !notifFired.has(key) && !takenToday(s.id,tm)){
-        notifFired.add(key);
+      if(curMin>=schedMin && curMin-schedMin<=5 && !window.notifFired.has(key) && !takenToday(s.id,tm)){
+        window.notifFired.add(key);
         try{
           const reg=await navigator.serviceWorker?.ready;
           const opts={body:`${s.dose||''} · ${tm}`, icon:'/icons/icon-192.png', tag:key, data:{supId:s.id,time:tm}, badge:'/icons/icon-192.png'};

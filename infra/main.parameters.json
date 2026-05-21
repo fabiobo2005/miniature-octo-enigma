@@ -22,6 +22,9 @@
     },
     "webImage": {
       "value": "${SERVICE_WEB_IMAGE_NAME=}"
+    },
+    "adminSecret": {
+      "value": "${ADMIN_SECRET=}"
     }
   }
 }

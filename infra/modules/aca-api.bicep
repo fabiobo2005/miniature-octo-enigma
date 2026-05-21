@@ -10,6 +10,13 @@ param pgHost string
 param pgDatabase string
 param pgUser string
 
+@description('Comma-separated list of allowed CORS origins (full URL incl. scheme). Empty = allow all (dev only).')
+param allowedOrigins string = ''
+
+@secure()
+@description('Shared secret protecting /api/db/inspect. Empty disables the endpoint (returns 404).')
+param adminSecret string = ''
+
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
@@ -22,6 +29,12 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: envId
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: empty(adminSecret) ? [] : [
+        {
+          name: 'admin-secret'
+          value: adminSecret
+        }
+      ]
       ingress: {
         external: false
         targetPort: 3000
@@ -41,7 +54,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'api'
           image: image
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
-          env: [
+          env: concat([
             { name: 'PORT', value: '3000' }
             { name: 'AZURE_CLIENT_ID', value: userAssignedIdentityClientId }
             { name: 'PG_HOST', value: pgHost }
@@ -49,7 +62,10 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'PG_USER', value: pgUser }
             { name: 'PG_PORT', value: '5432' }
             { name: 'PG_SSL', value: 'true' }
-          ]
+            { name: 'ALLOWED_ORIGINS', value: allowedOrigins }
+          ], empty(adminSecret) ? [] : [
+            { name: 'ADMIN_SECRET', secretRef: 'admin-secret' }
+          ])
           probes: [
             {
               type: 'Liveness'
