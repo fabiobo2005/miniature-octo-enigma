@@ -6,6 +6,7 @@ import { join } from 'path';
 import { saudeRouter } from './routes/saude';
 import { dietaRouter } from './routes/dieta';
 import { treinosRouter } from './routes/treinos';
+import { programasRouter } from './routes/programas';
 import { usersRouter } from './routes/users';
 
 const app = express();
@@ -109,6 +110,7 @@ app.use('/api/users',   usersRouter);
 app.use('/api/saude',   saudeRouter);
 app.use('/api/dieta',   dietaRouter);
 app.use('/api/treinos', treinosRouter);
+app.use('/api/treinos', programasRouter);
 
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error('unhandled', err);
