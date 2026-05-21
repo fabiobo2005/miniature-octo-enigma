@@ -5,6 +5,36 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 
 ---
 
+## v8.5 · 2026-05-21 · DevOps: stagings Dev/Prod nativos no ACA
+
+### Infra
+- `infra/modules/aca-api.bicep` e `aca-web.bicep`: `activeRevisionsMode` mudou de
+  `Single` para `Multiple`. Bloco `ingress.traffic` adicionado com
+  `[{ latestRevision: true, label: 'prod', weight: 100 }]`.
+- Estado inicial aplicado via az CLI (sem rodar `azd provision`): revisões correntes
+  receberam label `prod`, tráfego 100% para `prod`.
+
+### DevOps
+- Novo workflow `.github/workflows/deploy-dev.yml`:
+  - Trigger: push em `main` (paths `src/api/**`, `src/web/**`) + `workflow_dispatch`.
+  - Build via `az acr build` (tag `dev-<sha8>`), cria nova revisão em cada ACA com
+    sufixo `dev-<sha8>`, aplica label `dev`, reafirma tráfego 100% prod.
+- Novo workflow `.github/workflows/promote-prod.yml`:
+  - Trigger: apenas `workflow_dispatch` com input `confirm=PROMOTE`.
+  - Roda no environment `production` (required reviewer @fabiobo2005).
+  - Swap atômico: labels `dev` ↔ `prod` em api e web. Rollback = rodar de novo.
+- Novo GitHub Environment `production` com required reviewer.
+
+### URLs
+- Prod: `https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`
+- Dev:  `https://ca-apex-web--dev.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`
+
+### Notas
+- Postgres compartilhado entre stagings — migrations precisam ser backward-compatible.
+- Issue GitHub #13 fechada por este release.
+
+---
+
 ## v8.4 · 2026-05-20 · Backend: validação semântica com zod
 
 ### Backend

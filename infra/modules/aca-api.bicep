@@ -21,12 +21,19 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     managedEnvironmentId: envId
     configuration: {
-      activeRevisionsMode: 'Single'
+      activeRevisionsMode: 'Multiple'
       ingress: {
         external: false
         targetPort: 3000
         transport: 'http'
         allowInsecure: false
+        traffic: [
+          {
+            latestRevision: true
+            label: 'prod'
+            weight: 100
+          }
+        ]
       }
       registries: [
         {

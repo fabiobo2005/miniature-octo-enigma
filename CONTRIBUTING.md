@@ -24,6 +24,42 @@ git push -u origin feat/nome-curto
 gh pr create --base main --fill --body "Closes #<issue>"
 ```
 
+## Stagings Dev / Prod (ACA revision labels)
+
+Os Container Apps rodam em `activeRevisionsMode: Multiple` com dois labels:
+
+| Label  | URL                                                                                              | Quem chega aqui |
+|--------|--------------------------------------------------------------------------------------------------|-----------------|
+| `prod` | `https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`                     | 100% do tráfego público |
+| `dev`  | `https://ca-apex-web--dev.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/`                | Apenas quem usar a URL `--dev` |
+
+Limitação aceita: **Postgres é compartilhado entre dev e prod**. Migrations devem ser
+backward-compatible (expand → migrate → contract). Web em dev chama API em prod
+por padrão (FQDN sem label). Para testar full-stack, promova a API primeiro.
+
+### Fluxo de release
+
+1. **PR mergeado em `main`** → workflow [`Deploy · Dev`](.github/workflows/deploy-dev.yml)
+   dispara automaticamente:
+   - Build de imagens via ACR (`apex-api:dev-<sha>`, `apex-web:dev-<sha>`)
+   - Cria nova revisão em cada ACA com sufixo `dev-<sha>`
+   - Move label `dev` para a nova revisão (rev antiga perde o label)
+   - Tráfego público continua **100% prod**
+2. **Validar manualmente** na URL `--dev` (UI, API via `/api/health`, etc).
+3. **Promover**: rode [`Promote · Prod`](.github/workflows/promote-prod.yml)
+   (`workflow_dispatch`, input `confirm=PROMOTE`).
+   - Pausa em **required reviewer** (`production` environment) — aprovação obrigatória do dono.
+   - Swap atômico: labels `dev` ↔ `prod` em ambos os apps, tráfego 100% → novo `prod`.
+   - A revisão antiga continua acessível na URL `--dev` para rollback rápido.
+4. **Rollback**: rode `Promote · Prod` novamente — swap volta.
+
+### Quando precisar pular o staging
+
+Para hotfix urgente direto em prod (não recomendado): `azd deploy` local. Isso cria
+uma nova revisão `azd-*` que vira **a nova prod** automaticamente porque o Bicep
+mantém `latestRevision: true` no traffic config. Use só em emergência e documente
+no CHANGELOG.
+
 ## Convenções de branch
 
 | Prefixo    | Uso                                              |

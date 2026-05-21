@@ -1,0 +1,86 @@
+name: Promote · Dev → Prod (manual approval)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Digite 'PROMOTE' para confirmar a promoção do dev atual para prod."
+        required: true
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG: rg-apex-dev
+  ACA_API: ca-apex-api
+  ACA_WEB: ca-apex-web
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Guard · confirm input
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "PROMOTE" ]; then
+            echo "::error::Você precisa digitar PROMOTE no input para confirmar."
+            exit 1
+          fi
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Capture current dev/prod revisions
+        id: caps
+        run: |
+          for APP in "$ACA_API" "$ACA_WEB"; do
+            DEV=$(az containerapp revision list -g "$RG" -n "$APP" --query "[?properties.labels && contains(properties.labels, 'dev')].name | [0]" -o tsv)
+            PROD=$(az containerapp revision list -g "$RG" -n "$APP" --query "[?properties.labels && contains(properties.labels, 'prod')].name | [0]" -o tsv)
+            if [ -z "$DEV" ]; then
+              echo "::error::Nenhuma revisão com label 'dev' encontrada em $APP. Rode Deploy · Dev primeiro."
+              exit 1
+            fi
+            if [ -z "$PROD" ]; then
+              echo "::error::Nenhuma revisão com label 'prod' encontrada em $APP."
+              exit 1
+            fi
+            echo "${APP}_dev=$DEV"   >> $GITHUB_OUTPUT
+            echo "${APP}_prod=$PROD" >> $GITHUB_OUTPUT
+            echo "$APP: dev=$DEV prod=$PROD"
+          done
+
+      - name: Swap labels (dev → prod, old prod → dev) — api
+        run: |
+          DEV="${{ steps.caps.outputs.ca-apex-api_dev }}"
+          PROD="${{ steps.caps.outputs.ca-apex-api_prod }}"
+          az containerapp revision label remove -g "$RG" -n "$ACA_API" --label dev  --no-prompt -o none
+          az containerapp revision label remove -g "$RG" -n "$ACA_API" --label prod --no-prompt -o none
+          az containerapp revision label add    -g "$RG" -n "$ACA_API" --label prod --revision "$DEV"  --no-prompt -o table
+          az containerapp revision label add    -g "$RG" -n "$ACA_API" --label dev  --revision "$PROD" --no-prompt -o table
+          az containerapp ingress traffic set   -g "$RG" -n "$ACA_API" --label-weight "prod=100" -o table
+
+      - name: Swap labels (dev → prod, old prod → dev) — web
+        run: |
+          DEV="${{ steps.caps.outputs.ca-apex-web_dev }}"
+          PROD="${{ steps.caps.outputs.ca-apex-web_prod }}"
+          az containerapp revision label remove -g "$RG" -n "$ACA_WEB" --label dev  --no-prompt -o none
+          az containerapp revision label remove -g "$RG" -n "$ACA_WEB" --label prod --no-prompt -o none
+          az containerapp revision label add    -g "$RG" -n "$ACA_WEB" --label prod --revision "$DEV"  --no-prompt -o table
+          az containerapp revision label add    -g "$RG" -n "$ACA_WEB" --label dev  --revision "$PROD" --no-prompt -o table
+          az containerapp ingress traffic set   -g "$RG" -n "$ACA_WEB" --label-weight "prod=100" -o table
+
+      - name: Summary
+        run: |
+          {
+            echo "### Promote completed $(date -u +'%Y-%m-%d %H:%M UTC')"
+            echo ""
+            echo "Labels invertidos: o que era dev virou prod (100% tráfego); o que era prod virou dev (continua acessível via URL \`--dev\` para rollback)."
+            echo ""
+            echo "Rollback: rode novamente este workflow — vai swapar de volta."
+          } >> $GITHUB_STEP_SUMMARY
