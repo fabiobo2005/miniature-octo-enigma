@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<title>APEX · Programas</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<style>
+  /* ===== Programas — UI específica (não conflita com app.css) ===== */
+  .progGrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));margin-top:10px}
+  .progCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);
+            padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:.15s;box-shadow:var(--shadow-l)}
+  .progCard:hover{transform:translateY(-2px);border-color:var(--pri);box-shadow:var(--shadow)}
+  .progCard h3{margin:0;font-size:17px;letter-spacing:-.2px}
+  .progCard .meta{display:flex;gap:6px;flex-wrap:wrap;font-size:11px}
+  .nivelTag{padding:2px 8px;border-radius:99px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .nivelTag.iniciante{background:#e7f7ed;color:#1b6e3a;border:1px solid #b6e3c4}
+  .nivelTag.intermediario{background:#fff5d6;color:#7a5500;border:1px solid #f1d77a}
+  .nivelTag.avancado{background:#fde0e0;color:#8c1a1a;border:1px solid #f3a8a8}
+  body[data-theme="dark"] .nivelTag.iniciante{background:#0c2e1d;color:#7bd9a4;border-color:#1e5a3b}
+  body[data-theme="dark"] .nivelTag.intermediario{background:#3a2e0a;color:#e9c364;border-color:#6b541c}
+  body[data-theme="dark"] .nivelTag.avancado{background:#3a1010;color:#ee8a8a;border-color:#6f2222}
+
+  .filterBar{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}
+  .filterChip{padding:6px 12px;border:1px solid var(--line);background:var(--surf);border-radius:99px;cursor:pointer;font-size:12px;font-weight:600;color:var(--mut)}
+  .filterChip.on{background:var(--pri);border-color:var(--pri);color:#fff}
+
+  .weekBlock{border:1px solid var(--line);border-radius:var(--r);background:var(--surf);overflow:hidden;margin-bottom:10px}
+  .weekHead{padding:12px 14px;background:var(--pri-bg);font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+  .weekHead .chev{transition:.2s}
+  .weekBlock.open .chev{transform:rotate(90deg)}
+  .weekBody{display:none;padding:8px}
+  .weekBlock.open .weekBody{display:block}
+  .tplRow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:.15s}
+  .tplRow:hover{background:var(--pri-bg)}
+  .tplRow + .tplRow{border-top:1px solid var(--line)}
+  .corPill{width:14px;height:14px;border-radius:50%;flex-shrink:0;border:1px solid rgba(0,0,0,.15)}
+  .tplRow .nm{flex:1;font-weight:600;font-size:14px}
+  .tplRow .ct{color:var(--mut);font-size:12px}
+
+  /* ===== Execução ===== */
+  .exerCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);
+            padding:14px;margin-bottom:10px;box-shadow:var(--shadow-l);transition:.15s}
+  .exerCard.done{opacity:.65;border-color:var(--pri)}
+  .exerHead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .exerHead h4{margin:0;font-size:16px;letter-spacing:-.2px}
+  .exerHead .sub{color:var(--mut);font-size:12px;margin-top:2px}
+  .exerHead .doneBtn{flex-shrink:0;padding:6px 10px;font-size:11px;border-radius:99px;
+                     border:1px solid var(--line);background:var(--surf);cursor:pointer;color:var(--mut)}
+  .exerHead .doneBtn.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+  .prescGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:11px;margin:8px 0}
+  .prescGrid div{background:var(--bg);padding:6px 8px;border-radius:8px}
+  .prescGrid b{display:block;color:var(--mut);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+  .setsTable{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  .setsTable th{text-align:left;font-size:10px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:4px 4px}
+  .setsTable td{padding:3px 2px}
+  .setsTable input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;text-align:center}
+  .setsTable input:focus{outline:none;border-color:var(--pri)}
+  .addSetBtn{margin-top:6px;width:100%;padding:6px;border:1px dashed var(--line);background:transparent;border-radius:8px;color:var(--mut);cursor:pointer;font-size:12px}
+  .addSetBtn:hover{border-color:var(--pri);color:var(--pri)}
+
+  /* Timer fixo no rodapé */
+  .timerBar{position:fixed;bottom:0;left:0;right:0;background:var(--surf);border-top:1px solid var(--line);
+            padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.08);z-index:50}
+  .timerDisplay{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px;min-width:90px;text-align:center}
+  .timerDisplay.warn{color:#d6a800}
+  .timerDisplay.go{color:var(--err);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.5}}
+  .timerBtns{display:flex;gap:6px;flex:1}
+  .timerBtns button{flex:1;padding:8px 0;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:600;cursor:pointer;font-size:13px}
+  .timerBtns button.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
+
+  .execBottomPad{height:90px}
+
+  .crumbs{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--mut);margin-bottom:8px}
+  .crumbs a{color:var(--pri);text-decoration:none}
+  .progHero{background:var(--grad-soft);border-radius:18px;padding:18px;margin-bottom:14px;border:1px solid var(--line)}
+  .progHero h1{margin:0 0 6px;font-size:22px;letter-spacing:-.4px}
+  .progHero .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <div class="topRow">
+      <a class="iconBtn" href="/" title="Início" aria-label="Início">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </a>
+      <div class="greet">
+        <p class="hi" id="greet">Bom dia</p>
+        <p class="nm"><span id="userChip">—</span> · Programas <span class="areaBadge">💪 Área</span></p>
+      </div>
+      <button class="iconBtn" onclick="logoutUser()" title="Trocar usuário" aria-label="Trocar usuário">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+      </button>
+      <button class="iconBtn" onclick="toggleTheme()" title="Tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ====== Catálogo ====== -->
+  <section id="viewList" hidden>
+    <div class="card">
+      <h2>📚 Programas de treino</h2>
+      <p class="small" style="color:var(--mut);margin:0 0 8px">Escolha um programa para começar.</p>
+      <div class="filterBar" id="filterBar">
+        <button class="filterChip on" data-n="">Todos</button>
+        <button class="filterChip" data-n="iniciante">Iniciante</button>
+        <button class="filterChip" data-n="intermediario">Intermediário</button>
+        <button class="filterChip" data-n="avancado">Avançado</button>
+      </div>
+      <div id="progGrid" class="progGrid"></div>
+    </div>
+  </section>
+
+  <!-- ====== Detalhe de programa ====== -->
+  <section id="viewProg" hidden>
+    <div class="crumbs"><a href="#/">← Programas</a></div>
+    <div class="progHero">
+      <h1 id="progTitle">—</h1>
+      <p id="progObj" class="small" style="margin:0;color:var(--mut)"></p>
+      <div class="meta">
+        <span id="progNivel" class="nivelTag"></span>
+        <span id="progSemanas" class="small" style="color:var(--mut)"></span>
+        <span id="progTpls"    class="small" style="color:var(--mut)"></span>
+      </div>
+    </div>
+    <div id="weeksWrap"></div>
+  </section>
+
+  <!-- ====== Execução do treino ====== -->
+  <section id="viewExec" hidden>
+    <div class="crumbs"><a id="execBack" href="#/">← voltar</a></div>
+    <div class="progHero">
+      <h1 id="execTitle">—</h1>
+      <p id="execSub" class="small" style="margin:0;color:var(--mut)"></p>
+    </div>
+    <div id="execExercises"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn ghost" style="flex:1" onclick="abortSession()">Abandonar</button>
+      <button class="btn" style="flex:2" onclick="finishSession()">Finalizar treino ✓</button>
+    </div>
+    <div class="execBottomPad"></div>
+    <!-- Timer bar -->
+    <div class="timerBar" id="timerBar" hidden>
+      <div class="timerDisplay" id="timerDisplay">00:00</div>
+      <div class="timerBtns">
+        <button id="timerToggle" class="pri" onclick="toggleTimer()">▶︎ Iniciar</button>
+        <button onclick="resetTimer()">Reset</button>
+        <button onclick="closeTimer()">Fechar</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/js/core.js"></script>
+<script src="/js/programas.js"></script>
+</body>
+</html>
