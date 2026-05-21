@@ -132,3 +132,265 @@ CREATE TABLE IF NOT EXISTS treinos.workout_log (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_workout_user_date ON treinos.workout_log(user_id, trained_on DESC);
+
+-- ============================================================================
+-- MIGRATION v8-programas-treino
+-- Programas de treino: catálogo, prescrição, execução por série, painel coach.
+-- Cria todas as tabelas como IF NOT EXISTS para ser seguro mesmo se a entrada
+-- da migration não for encontrada (idempotente em ambos os caminhos).
+-- ============================================================================
+
+-- ---------- Catálogo de exercícios ----------
+CREATE TABLE IF NOT EXISTS treinos.exercise_catalog (
+  id               SERIAL PRIMARY KEY,
+  nome_padrao      TEXT NOT NULL UNIQUE,
+  grupo_muscular   TEXT,
+  equipamento      TEXT,
+  tipo             TEXT NOT NULL DEFAULT 'forca' CHECK (tipo IN ('forca','cardio','mobilidade','core')),
+  ativo            BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_excat_grupo ON treinos.exercise_catalog(grupo_muscular) WHERE ativo = TRUE;
+CREATE INDEX IF NOT EXISTS idx_excat_tipo  ON treinos.exercise_catalog(tipo)           WHERE ativo = TRUE;
+
+CREATE TABLE IF NOT EXISTS treinos.exercise_alias (
+  id                   SERIAL PRIMARY KEY,
+  exercise_catalog_id  INTEGER NOT NULL REFERENCES treinos.exercise_catalog(id) ON DELETE CASCADE,
+  alias                TEXT NOT NULL,
+  alias_norm           TEXT GENERATED ALWAYS AS (lower(btrim(alias))) STORED,
+  origem               TEXT,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_exalias_norm ON treinos.exercise_alias(alias_norm);
+CREATE INDEX        IF NOT EXISTS idx_exalias_cat ON treinos.exercise_alias(exercise_catalog_id);
+
+CREATE TABLE IF NOT EXISTS treinos.exercise_media (
+  id                   SERIAL PRIMARY KEY,
+  exercise_catalog_id  INTEGER NOT NULL REFERENCES treinos.exercise_catalog(id) ON DELETE CASCADE,
+  tipo                 TEXT NOT NULL CHECK (tipo IN ('video','gif','img')),
+  url                  TEXT NOT NULL,
+  duracao_seg          INTEGER,
+  thumbnail            TEXT,
+  ordem                INTEGER NOT NULL DEFAULT 0,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_exmedia_cat ON treinos.exercise_media(exercise_catalog_id);
+
+-- ---------- Programa ----------
+CREATE TABLE IF NOT EXISTS treinos.program (
+  id                SERIAL PRIMARY KEY,
+  nome              TEXT NOT NULL,
+  objetivo          TEXT,
+  duracao_semanas   INTEGER NOT NULL CHECK (duracao_semanas BETWEEN 1 AND 52),
+  nivel             TEXT CHECK (nivel IN ('iniciante','intermediario','avancado')),
+  autor_user_id     UUID REFERENCES app.user(id) ON DELETE SET NULL,
+  source_file       TEXT,
+  source_sha256     TEXT,
+  ativo             BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_program_nome      ON treinos.program(nome);
+CREATE        INDEX IF NOT EXISTS idx_program_ativo    ON treinos.program(ativo) WHERE ativo = TRUE;
+CREATE        INDEX IF NOT EXISTS idx_program_autor    ON treinos.program(autor_user_id);
+
+CREATE TABLE IF NOT EXISTS treinos.program_week (
+  id                    SERIAL PRIMARY KEY,
+  program_id            INTEGER NOT NULL REFERENCES treinos.program(id) ON DELETE CASCADE,
+  semana_numero         INTEGER NOT NULL CHECK (semana_numero BETWEEN 1 AND 52),
+  microciclo_numero     INTEGER,
+  observacoes           TEXT,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_program_week ON treinos.program_week(program_id, semana_numero);
+
+CREATE TABLE IF NOT EXISTS treinos.workout_template (
+  id                SERIAL PRIMARY KEY,
+  program_id        INTEGER NOT NULL REFERENCES treinos.program(id) ON DELETE CASCADE,
+  semana_numero     INTEGER NOT NULL CHECK (semana_numero BETWEEN 1 AND 52),
+  cor               TEXT NOT NULL,
+  nome_treino       TEXT NOT NULL,
+  ordem             INTEGER NOT NULL DEFAULT 0,
+  observacoes       TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_workout_template
+  ON treinos.workout_template(program_id, semana_numero, cor, nome_treino);
+CREATE INDEX IF NOT EXISTS idx_wtemplate_prog_semana
+  ON treinos.workout_template(program_id, semana_numero);
+
+CREATE TABLE IF NOT EXISTS treinos.exercise_prescription (
+  id                    SERIAL PRIMARY KEY,
+  workout_template_id   INTEGER NOT NULL REFERENCES treinos.workout_template(id) ON DELETE CASCADE,
+  exercise_catalog_id   INTEGER NOT NULL REFERENCES treinos.exercise_catalog(id) ON DELETE RESTRICT,
+  ordem                 INTEGER NOT NULL DEFAULT 0,
+  series                INTEGER,
+  reps                  TEXT,
+  cadencia              TEXT,
+  intervalo_seg         INTEGER,
+  metodo                TEXT,
+  observacoes           TEXT,
+  carga_sugerida        TEXT,
+  nome_original         TEXT,
+  raw_row               JSONB,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_prescription_template_ordem
+  ON treinos.exercise_prescription(workout_template_id, ordem, exercise_catalog_id);
+CREATE INDEX IF NOT EXISTS idx_prescription_template ON treinos.exercise_prescription(workout_template_id);
+CREATE INDEX IF NOT EXISTS idx_prescription_exercise ON treinos.exercise_prescription(exercise_catalog_id);
+
+-- ---------- Execução pelo aluno ----------
+CREATE TABLE IF NOT EXISTS treinos.workout_session (
+  id                    SERIAL PRIMARY KEY,
+  user_id               UUID NOT NULL REFERENCES app.user(id) ON DELETE CASCADE,
+  program_id            INTEGER REFERENCES treinos.program(id) ON DELETE SET NULL,
+  workout_template_id   INTEGER REFERENCES treinos.workout_template(id) ON DELETE SET NULL,
+  semana_numero         INTEGER,
+  data                  DATE NOT NULL DEFAULT CURRENT_DATE,
+  started_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at           TIMESTAMPTZ,
+  duracao_min           INTEGER,
+  pse                   INTEGER CHECK (pse BETWEEN 0 AND 10),
+  unidades_arbitrarias  NUMERIC(8,2),
+  carga_total           NUMERIC(10,2),
+  status                TEXT NOT NULL DEFAULT 'in_progress'
+                        CHECK (status IN ('in_progress','finished','aborted')),
+  observacoes           TEXT,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_session_user_data    ON treinos.workout_session(user_id, data DESC);
+CREATE INDEX IF NOT EXISTS idx_session_program      ON treinos.workout_session(program_id);
+CREATE INDEX IF NOT EXISTS idx_session_template     ON treinos.workout_session(workout_template_id);
+
+CREATE TABLE IF NOT EXISTS treinos.exercise_execution (
+  id                    SERIAL PRIMARY KEY,
+  workout_session_id    INTEGER NOT NULL REFERENCES treinos.workout_session(id) ON DELETE CASCADE,
+  exercise_catalog_id   INTEGER NOT NULL REFERENCES treinos.exercise_catalog(id) ON DELETE RESTRICT,
+  prescription_id       INTEGER REFERENCES treinos.exercise_prescription(id) ON DELETE SET NULL,
+  ordem                 INTEGER NOT NULL DEFAULT 0,
+  concluido             BOOLEAN NOT NULL DEFAULT FALSE,
+  observacao_aluno      TEXT,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_execution_session_ex
+  ON treinos.exercise_execution(workout_session_id, exercise_catalog_id, ordem);
+CREATE INDEX IF NOT EXISTS idx_execution_session ON treinos.exercise_execution(workout_session_id);
+
+CREATE TABLE IF NOT EXISTS treinos.set_execution (
+  id                       SERIAL PRIMARY KEY,
+  exercise_execution_id    INTEGER NOT NULL REFERENCES treinos.exercise_execution(id) ON DELETE CASCADE,
+  set_numero               INTEGER NOT NULL CHECK (set_numero BETWEEN 1 AND 50),
+  reps                     INTEGER,
+  carga                    NUMERIC(7,2),
+  rpe                      NUMERIC(3,1) CHECK (rpe IS NULL OR (rpe >= 0 AND rpe <= 10)),
+  tempo_seg                INTEGER,
+  observacoes              TEXT,
+  registered_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_setexec_unique
+  ON treinos.set_execution(exercise_execution_id, set_numero);
+CREATE INDEX IF NOT EXISTS idx_setexec_exec ON treinos.set_execution(exercise_execution_id);
+
+-- ---------- Coach / personal ----------
+CREATE TABLE IF NOT EXISTS treinos.coach_assignment (
+  id              SERIAL PRIMARY KEY,
+  coach_user_id   UUID NOT NULL REFERENCES app.user(id) ON DELETE CASCADE,
+  aluno_user_id   UUID NOT NULL REFERENCES app.user(id) ON DELETE CASCADE,
+  status          TEXT NOT NULL DEFAULT 'ativo' CHECK (status IN ('ativo','pausado','encerrado')),
+  started_on      DATE NOT NULL DEFAULT CURRENT_DATE,
+  ended_on        DATE,
+  observacoes     TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (coach_user_id <> aluno_user_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_coach_assign_pair
+  ON treinos.coach_assignment(coach_user_id, aluno_user_id) WHERE status = 'ativo';
+CREATE INDEX IF NOT EXISTS idx_coach_assign_coach ON treinos.coach_assignment(coach_user_id);
+CREATE INDEX IF NOT EXISTS idx_coach_assign_aluno ON treinos.coach_assignment(aluno_user_id);
+
+CREATE TABLE IF NOT EXISTS treinos.coach_feedback (
+  id                    SERIAL PRIMARY KEY,
+  coach_user_id         UUID NOT NULL REFERENCES app.user(id) ON DELETE CASCADE,
+  aluno_user_id         UUID NOT NULL REFERENCES app.user(id) ON DELETE CASCADE,
+  workout_session_id    INTEGER REFERENCES treinos.workout_session(id) ON DELETE SET NULL,
+  texto                 TEXT NOT NULL,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_aluno   ON treinos.coach_feedback(aluno_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feedback_session ON treinos.coach_feedback(workout_session_id);
+
+-- ---------- Timer e cues de áudio (schema mínimo, sem UI nesta fase) ----------
+CREATE TABLE IF NOT EXISTS treinos.timer_preset (
+  id              SERIAL PRIMARY KEY,
+  user_id         UUID REFERENCES app.user(id) ON DELETE CASCADE,
+  nome            TEXT NOT NULL,
+  intervalo_seg   INTEGER NOT NULL CHECK (intervalo_seg > 0),
+  beep_inicio     BOOLEAN NOT NULL DEFAULT TRUE,
+  beep_fim        BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_timer_preset_user ON treinos.timer_preset(user_id);
+
+CREATE TABLE IF NOT EXISTS treinos.audio_cue_profile (
+  id              SERIAL PRIMARY KEY,
+  user_id         UUID REFERENCES app.user(id) ON DELETE CASCADE,
+  nome            TEXT NOT NULL,
+  provider        TEXT NOT NULL DEFAULT 'beep' CHECK (provider IN ('beep','spotify','apple_music','custom')),
+  config          JSONB,
+  ativo           BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_audio_cue_user ON treinos.audio_cue_profile(user_id);
+
+-- ---------- Auditoria do importer ----------
+CREATE TABLE IF NOT EXISTS treinos.import_run (
+  id              SERIAL PRIMARY KEY,
+  file_name       TEXT NOT NULL,
+  source_sha256   TEXT NOT NULL,
+  started_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at     TIMESTAMPTZ,
+  rows_read       INTEGER NOT NULL DEFAULT 0,
+  rows_imported   INTEGER NOT NULL DEFAULT 0,
+  status          TEXT NOT NULL DEFAULT 'running'
+                  CHECK (status IN ('running','success','partial','failed','skipped')),
+  log             JSONB
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_import_run_sha   ON treinos.import_run(source_sha256) WHERE status = 'success';
+CREATE INDEX        IF NOT EXISTS idx_import_run_file ON treinos.import_run(file_name, started_at DESC);
+
+-- ---------- Trigger genérico de updated_at (reaproveitado) ----------
+CREATE OR REPLACE FUNCTION treinos.tg_set_updated_at() RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $tg$
+DECLARE
+  t TEXT;
+  tables TEXT[] := ARRAY[
+    'exercise_catalog','program','workout_template',
+    'workout_session','exercise_execution','coach_assignment'
+  ];
+BEGIN
+  FOREACH t IN ARRAY tables LOOP
+    EXECUTE format($f$
+      DROP TRIGGER IF EXISTS trg_%1$s_updated_at ON treinos.%1$s;
+      CREATE TRIGGER trg_%1$s_updated_at
+        BEFORE UPDATE ON treinos.%1$s
+        FOR EACH ROW EXECUTE FUNCTION treinos.tg_set_updated_at();
+    $f$, t);
+  END LOOP;
+END $tg$;
+
+-- Registra migração (idempotente)
+INSERT INTO app.schema_migrations(version)
+  VALUES ('v8-programas-treino')
+  ON CONFLICT (version) DO NOTHING;
