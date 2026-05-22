@@ -1,230 +1,242 @@
-// ===== treinos.js : Treinos standalone app (multiusuário) =====
-const CATS = ['Push','Pull','Pernas','Full Body','Cardio','Tênis','Mobilidade','HIIT'];
-const CAT_ICON = {Push:'💪',Pull:'🪢',Pernas:'🦵','Full Body':'🔥',Cardio:'🏃',Tênis:'🎾',Mobilidade:'🧘',HIIT:'⚡'};
+// ===== treinos.js : tela única do aluno (programa + próximo treino + catálogo básico) =====
+const NIVEL_LABEL = { iniciante:'Iniciante', intermediario:'Intermediário', avancado:'Avançado' };
+const COR_TO_HEX = {
+  amarelo:'#f0c419', verde:'#3aa55a', vermelho:'#d04848', azul:'#3a73c4', laranja:'#e58a2f',
+  roxo:'#7e57c2', rosa:'#e26a8a', cinza:'#9aa0a6', preto:'#222', aerobio:'#2a9d8f', 'aeróbio':'#2a9d8f'
+};
 
-let state = { workouts: [], filterCat: null };
-let chWk = null;
+const TSTATE = { user:null, atual:null, proximo:null, sessions:[], programs:[], filter:'', chooserVisible:false };
 
-async function loadWorkouts(){
-  try{
-    state.workouts = await api('GET','/api/treinos/workouts?days=60');
-    renderTreinos();
-  }catch(e){console.error(e)}
+function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function corHex(c){ return COR_TO_HEX[String(c || '').toLowerCase()] || '#9aa0a6'; }
+function nivelLabel(n){ return NIVEL_LABEL[n] || n || '—'; }
+function pct(n){ const v = Number(n || 0); return Math.max(0, Math.min(100, Number.isFinite(v) ? v : 0)); }
+function fmtLongDate(v){ if(!v) return '—'; return new Date(v).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}); }
+function statusLabel(s){ return ({in_progress:'em andamento', finished:'finalizado', concluido:'concluído', aborted:'abandonado'}[s] || s || '—'); }
+function coachRoleText(coach){
+  const parts = [coach.role === 'personal' ? 'Personal' : coach.role, coach.goal].filter(Boolean);
+  return parts.length ? ` (${escapeHtml(parts.join(' - '))})` : '';
 }
+function sessionTime(s){ return s.finished_at || s.started_at || s.data; }
+function app(){ return document.getElementById('treinosApp'); }
 
-async function addWorkout(){
-  const trained_on = $('#wkDate').value || todayStr();
-  const name = $('#wkName').value.trim();
-  if(!name){ toast('Informe o nome do treino', true); return; }
-  const body = {
-    trained_on, name,
-    category: $('#wkCategory').value || null,
-    duration_min: parseInt($('#wkDuration').value)||null,
-    intensity: $('#wkIntensity').value || null,
-    notes: $('#wkNotes').value.trim() || null
-  };
-  try{
-    await api('POST','/api/treinos/workouts', body);
-    ['wkName','wkDuration','wkNotes'].forEach(id=>$('#'+id).value='');
-    $('#wkCategory').value=''; $('#wkIntensity').value='';
-    $$('#catChipsForm .catChip').forEach(b=>b.classList.remove('on'));
-    $$('#intChipsForm .intChip').forEach(b=>b.classList.remove('on'));
-    await loadWorkouts();
-    toast('Treino registrado ✓');
-  }catch(e){ toast('Erro: '+e.message, true); }
-}
-
-async function deleteWorkout(id){
-  if(!confirm('Remover este treino?'))return;
-  try{
-    await api('DELETE',`/api/treinos/workouts/${id}`);
-    await loadWorkouts();
-    toast('Removido ✓');
-  }catch(e){ toast('Erro: '+e.message, true); }
-}
-
-function setupChips(){
-  const cats=$('#catChipsForm');
-  if(cats && !cats.dataset.ready){
-    cats.innerHTML = CATS.map(c=>`<button type="button" class="catChip" data-v="${c}">${CAT_ICON[c]} ${c}</button>`).join('');
-    cats.addEventListener('click', e=>{
-      const b=e.target.closest('.catChip'); if(!b)return;
-      const wasOn=b.classList.contains('on');
-      $$('#catChipsForm .catChip').forEach(x=>x.classList.remove('on'));
-      if(!wasOn){ b.classList.add('on'); $('#wkCategory').value=b.dataset.v; }
-      else { $('#wkCategory').value=''; }
-    });
-    cats.dataset.ready='1';
-  }
-  const ints=$('#intChipsForm');
-  if(ints && !ints.dataset.ready){
-    ints.addEventListener('click', e=>{
-      const b=e.target.closest('.intChip'); if(!b)return;
-      const wasOn=b.classList.contains('on');
-      $$('#intChipsForm .intChip').forEach(x=>x.classList.remove('on'));
-      if(!wasOn){ b.classList.add('on'); $('#wkIntensity').value=b.dataset.v; }
-      else { $('#wkIntensity').value=''; }
-    });
-    ints.dataset.ready='1';
+async function loadUser(){
+  const stored = USER.get();
+  try {
+    TSTATE.user = await apiRaw('GET', `/api/users/${encodeURIComponent(stored.id)}`);
+    if (TSTATE.user?.name) document.getElementById('userChip').textContent = TSTATE.user.name;
+  } catch (e) {
+    TSTATE.user = stored;
   }
 }
 
-function setFilter(cat){
-  state.filterCat = (state.filterCat===cat) ? null : cat;
-  renderTreinos();
+async function loadDashboard(){
+  app().innerHTML = '<div class="loading">Carregando treinos…</div>';
+  try {
+    await loadUser();
+    const [atual, proximo] = await Promise.all([
+      api('GET','/api/treinos/me/assignments/atual'),
+      api('GET','/api/treinos/me/proximo-treino')
+    ]);
+    TSTATE.atual = atual;
+    TSTATE.proximo = proximo;
+    TSTATE.sessions = atual?.assignment ? await api('GET','/api/treinos/sessions?limit=200') : [];
+    render();
+  } catch (e) {
+    app().innerHTML = `<div class="card errorBox"><h2>Não foi possível carregar treinos</h2><p class="small">${escapeHtml(e.message)}</p><button class="btn" onclick="loadDashboard()">Tentar novamente</button></div>`;
+  }
 }
 
-function renderTreinos(){
-  setupChips();
-  const today=new Date();
-  const wkAgo=new Date(today.getTime()-6*86400000);
-  const lastWkAgo=new Date(today.getTime()-13*86400000);
-  const all=(state.workouts||[]);
-  const recent = all.filter(w=>new Date(w.trained_on)>=wkAgo);
-  const lastWk = all.filter(w=>{const d=new Date(w.trained_on); return d>=lastWkAgo && d<wkAgo});
-  $('#wkSessions').textContent = String(recent.length);
-  $('#wkMinutes').textContent  = String(recent.reduce((a,b)=>a+(b.duration_min||0),0));
-  const lastW = all[0];
-  $('#wkLast').textContent = lastW ? fmtDate(lastW.trained_on) : '—';
-  $('#wkHistCount').textContent = `${all.length} treinos · 60d`;
-
-  // delta vs last week
-  const delta = $('#heroDelta');
-  if(delta){
-    if(lastWk.length>0 || recent.length>0){
-      const d = recent.length - lastWk.length;
-      delta.hidden=false;
-      delta.className='heroDelta '+(d<0?'up':d>0?'down':'flat');
-      delta.textContent = (d>0?'▲ +':d<0?'▼ ':'• ')+Math.abs(d)+' vs sem. ant.';
-    } else delta.hidden=true;
-  }
-
-  // hero metrics
-  const minWk = recent.reduce((a,b)=>a+(b.duration_min||0),0);
-  const avgDur = recent.length ? Math.round(minWk/recent.length) : 0;
-  const intensity = recent.filter(w=>w.intensity==='forte'||w.intensity==='maximo').length;
-  const hm=$('#heroMetrics');
-  if(hm){
-    const items=[
-      `<div class="hm"><span>Média/treino</span><b>${avgDur} min</b></div>`,
-      `<div class="hm"><span>Forte/Máx</span><b>${intensity}</b></div>`,
-      `<div class="hm"><span>Total 60d</span><b>${all.length}</b></div>`
-    ];
-    hm.innerHTML=items.join('');
-  }
-
-  // hero chart - últimos 14 dias por dia
-  const ctx=$('#chWk');
-  if(ctx){
-    if(chWk) chWk.destroy();
-    const days=[]; const counts=[]; const mins=[];
-    for(let i=13;i>=0;i--){
-      const d=new Date(today.getTime()-i*86400000);
-      const ds=d.toISOString().slice(0,10);
-      days.push(fmtDate(ds));
-      const dayWk=all.filter(w=>w.trained_on.slice(0,10)===ds);
-      counts.push(dayWk.length);
-      mins.push(dayWk.reduce((a,b)=>a+(b.duration_min||0),0));
-    }
-    if(all.length===0){
-      ctx.parentElement.innerHTML='<div class="empty mini"><div class="em">📈</div><p>Registre um treino para ver tendência.</p></div>';
-    } else {
-      chWk = new Chart(ctx,{
-        type:'bar',
-        data:{ labels:days,
-          datasets:[{label:'Min', data:mins,
-            backgroundColor:mins.map(m=>m===0?'rgba(221,231,225,.5)':m>=60?'#5fb594':m>=30?'#7BC4A4':'#a8d4be'),
-            borderRadius:4, barPercentage:.9, categoryPercentage:.95}]},
-        options:{responsive:true,maintainAspectRatio:false,
-          animation:{duration:600,easing:'easeOutQuart'},
-          plugins:{legend:{display:false},tooltip:{
-            backgroundColor:'rgba(20,40,30,.92)',padding:8,cornerRadius:8,displayColors:false,
-            callbacks:{label:(c)=>`${c.parsed.y} min · ${counts[c.dataIndex]} treino${counts[c.dataIndex]===1?'':'s'}`}}},
-          scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:10},maxTicksLimit:3}},
-                  x:{grid:{display:false},ticks:{font:{size:9},maxTicksLimit:7}}}}
-      });
-    }
-  }
-
-  // category filter chips
-  const filterEl=$('#catFilter');
-  if(filterEl){
-    const cats = [...new Set(all.map(w=>w.category).filter(Boolean))];
-    filterEl.innerHTML = cats.length ? cats.map(c=>
-      `<button type="button" class="catChip ${state.filterCat===c?'on':''}" onclick="setFilter('${c.replace(/'/g,"\\'")}')">${CAT_ICON[c]||'🏋️'} ${c}</button>`
-    ).join('') : '';
-  }
-
-  // history list (filtered)
-  const list = state.filterCat ? all.filter(w=>w.category===state.filterCat) : all;
-  $('#wkList').innerHTML = list.length
-    ? list.map((w,i)=>`
-      <div class="wkRow fadeUp" style="animation-delay:${Math.min(i,8)*40}ms">
-        <div class="wkIco">${CAT_ICON[w.category]||'🏋️'}</div>
-        <div class="wkMeta">
-          <b>${w.name} ${w.intensity?`<span class="wkIntense ${w.intensity}">${w.intensity}</span>`:''}</b>
-          <span>${fmtDate(w.trained_on)} ${w.category?'· '+w.category:''} ${w.duration_min?'· '+w.duration_min+'min':''}${w.notes?' · '+w.notes:''}</span>
-        </div>
-        <div class="wkAct"><button onclick="deleteWorkout(${w.id})" title="Remover">✕</button></div>
-      </div>`).join('')
-    : (state.filterCat
-        ? `<div class="empty"><div class="em">🔍</div><p>Nenhum treino em "${state.filterCat}".</p></div>`
-        : `<div class="empty"><div class="em">🏋️</div><p>Nenhum treino registrado ainda.</p></div>`);
+function render(){
+  const status = TSTATE.proximo?.status;
+  if (!TSTATE.atual?.assignment || status === 'sem-programa') return renderChooserOnly();
+  if (status === 'programa-concluido') return renderCompleted();
+  return renderActive();
 }
 
-async function checkTreinosReq(){
-  try{
-    const st = await apiRaw('GET', `/api/users/${USER.id()}/status`);
-    if (!st.treinos.has_data){
-      showRequiredOverlay({
-        title: '💪 Primeiro treino',
-        html: `
-          <div class="row2">
-            <div class="field"><label>Data <span style="color:var(--err)">*</span></label><input type="date" id="rqDate" value="${todayStr()}"></div>
-            <div class="field"><label>Duração (min) <span style="color:var(--err)">*</span></label><input type="number" id="rqDur" step="1" placeholder="60"></div>
+function renderActive(){
+  const atual = TSTATE.atual;
+  const program = atual.program || TSTATE.proximo.program || {};
+  const progress = atual.progress || {};
+  const currentWeek = progress.semana_atual || TSTATE.proximo.semana_atual || 1;
+  const days = progress.dias_no_programa ?? TSTATE.proximo.dias_no_programa ?? 0;
+  const percent = pct(progress.pct);
+  const next = TSTATE.proximo.proximo_template;
+  const programSessions = TSTATE.sessions.filter(s => !program.id || s.program_id === program.id);
+  const lastFive = TSTATE.sessions.slice(0,5);
+  const coach = atual.coach;
+  app().innerHTML = `
+    ${programCard(program, currentWeek, days, percent, coach)}
+    ${nextWorkoutCard(next, TSTATE.proximo.status)}
+    <div class="card">
+      <h2>Últimas sessões <span class="sub">${lastFive.length} de ${TSTATE.sessions.length}</span></h2>
+      ${renderSessions(lastFive)}
+    </div>
+    <details class="history">
+      <summary>Histórico do programa</summary>
+      ${renderHistory(programSessions)}
+    </details>
+    <section id="chooserMount" hidden></section>`;
+}
+
+function programCard(program, currentWeek, days, percent, coach){
+  return `<section class="programHero">
+    <div class="heroContent">
+      <div class="heroTop">
+        <div>
+          <h2>${escapeHtml(program.nome || 'Programa atual')}</h2>
+          <div class="programMeta">
+            <span>Semana ${currentWeek} de ${program.duracao_semanas || '—'} (${percent}%)</span>
+            <span>·</span><span>Há ${days} dia${Number(days) === 1 ? '' : 's'}</span>
           </div>
-          <div class="field"><label>Nome do treino <span style="color:var(--err)">*</span></label><input type="text" id="rqName" placeholder="Ex: Push A · Peito e ombro"></div>
-          <div class="row2">
-            <div class="field"><label>Categoria</label>
-              <select id="rqCat">
-                <option value="">—</option>
-                <option>Push</option><option>Pull</option><option>Pernas</option>
-                <option>Full Body</option><option>Cardio</option><option>Tênis</option>
-                <option>Mobilidade</option><option>HIIT</option>
-              </select>
-            </div>
-            <div class="field"><label>Intensidade</label>
-              <select id="rqInt">
-                <option value="">—</option>
-                <option value="leve">Leve</option>
-                <option value="moderado">Moderado</option>
-                <option value="forte">Forte</option>
-                <option value="maximo">Máximo</option>
-              </select>
-            </div>
-          </div>`,
-        onSubmit: async ()=>{
-          const trained_on = $('#rqDate').value || todayStr();
-          const name = $('#rqName').value.trim();
-          const dur  = parseInt($('#rqDur').value);
-          if (!name) throw new Error('Nome obrigatório');
-          if (!dur || dur<=0) throw new Error('Duração obrigatória');
-          await api('POST','/api/treinos/workouts', {
-            trained_on, name, duration_min: dur,
-            category: $('#rqCat').value || null,
-            intensity: $('#rqInt').value || null
-          });
-          toast('Primeiro treino registrado ✓');
-          await loadWorkouts();
-        }
-      });
-    }
-  }catch(e){ console.warn('status check failed', e); }
+        </div>
+        <span class="nivelTag ${escapeHtml(program.nivel || '')}">${escapeHtml(nivelLabel(program.nivel))}</span>
+      </div>
+      <div class="progressTrack" aria-label="Progresso do programa"><div class="progressFill" style="width:${percent}%"></div></div>
+      ${coach ? `<div class="coachLine">Personal: <b>${escapeHtml(coach.name)}</b>${coachRoleText(coach)}</div>` : ''}
+      <div class="programActions"><button class="subtleLink" id="toggleChooser" type="button">Trocar programa</button></div>
+    </div>
+  </section>`;
 }
 
-document.addEventListener('DOMContentLoaded', async ()=>{
-  if(!USER.require()) return;
-  $('#wkDate').value = todayStr();
-  await checkTreinosReq();
-  loadWorkouts();
+function nextWorkoutCard(next, status){
+  if (!next) {
+    const msg = status === 'semana-completa' ? 'Semana completa. O próximo treino aparecerá na próxima etapa.' : 'Nenhum treino sugerido agora.';
+    return `<div class="nextCard disabled"><p class="lbl">Próximo treino</p><h2>${msg}</h2></div>`;
+  }
+  return `<a class="nextCard" href="/programas.html#/treino/${encodeURIComponent(next.id)}">
+    <p class="lbl">Iniciar treino sugerido</p>
+    <h2>▶ ${escapeHtml(next.nome_treino || 'Treino')}</h2>
+    <div class="desc"><span class="colorDot" style="background:${corHex(next.cor)}"></span>${escapeHtml(next.cor || 'treino')} · ${escapeHtml(next.nome_treino || '')} · ${next.exercicios_count || 0} exercícios</div>
+  </a>`;
+}
+
+function renderSessions(list){
+  if (!list.length) return '<div class="empty"><div class="em">🏋️</div><p>Nenhuma sessão registrada ainda.</p></div>';
+  return `<div class="sessionList">${list.map(s => `<a class="sessionRow" href="/programas.html#/sessao/${encodeURIComponent(s.id)}">
+    <span class="colorDot" style="background:${corHex(s.cor)}"></span>
+    <span><span class="sessionTitle">${escapeHtml(s.nome_treino || s.program_nome || 'Treino')}</span><span class="sessionMeta">${fmtLongDate(sessionTime(s))}${s.cor ? ' · ' + escapeHtml(s.cor) : ''}</span></span>
+    <span class="statusTag ${escapeHtml(s.status || '')}">${escapeHtml(statusLabel(s.status))}</span>
+  </a>`).join('')}</div>`;
+}
+
+function renderHistory(list){
+  if (!list.length) return '<div class="weekGroup"><div class="empty"><p>Sem sessões neste programa ainda.</p></div></div>';
+  const groups = new Map();
+  for (const s of list) {
+    const key = s.semana_numero || '—';
+    const arr = groups.get(key) || [];
+    arr.push(s); groups.set(key, arr);
+  }
+  return [...groups.entries()].sort((a,b) => Number(b[0]) - Number(a[0])).map(([week, rows]) => `
+    <div class="weekGroup"><h3>Semana ${escapeHtml(week)}</h3>${renderSessions(rows)}</div>`).join('');
+}
+
+function renderCompleted(){
+  const program = TSTATE.proximo.program || TSTATE.atual.program || {};
+  const programSessions = TSTATE.sessions.filter(s => !program.id || s.program_id === program.id);
+  const sugestoes = (TSTATE.proximo.sugestoes || []).slice(0,5);
+  app().innerHTML = `
+    <section class="doneHero">
+      <h2>🎉 Você concluiu o ${escapeHtml(program.nome || 'programa')}!</h2>
+      <p>${program.duracao_semanas || '—'} semanas, ${programSessions.length} sessões.</p>
+    </section>
+    <div class="card">
+      <h2>Sugestões</h2>
+      ${sugestoes.length ? `<div class="suggestGrid">${sugestoes.map(renderSuggestion).join('')}</div>` : '<div class="empty"><p>Nenhuma sugestão disponível agora.</p></div>'}
+    </div>
+    <p style="text-align:center"><a class="subtleLink" href="/programas.html">Ver catálogo completo →</a></p>`;
+}
+
+function renderSuggestion(p){
+  const id = p.program_id || p.id;
+  return `<article class="progCard">
+    <div class="meta"><span class="nivelTag ${escapeHtml(p.nivel || '')}">${escapeHtml(nivelLabel(p.nivel))}</span></div>
+    <h3>${escapeHtml(p.nome)}</h3>
+    <p>Motivo: ${escapeHtml(p.motivo || 'Boa sequência para seu progresso.')}</p>
+    <button class="btn full assignProgram" data-id="${escapeHtml(id)}">Atribuir este programa</button>
+  </article>`;
+}
+
+async function renderChooserOnly(){
+  app().innerHTML = `${chooserBanner()}<section class="card"><h2>Escolher programa</h2>${filterBar()}<div id="programGrid" class="progGrid"><div class="loading">Carregando catálogo…</div></div></section>`;
+  await loadPrograms();
+}
+
+function chooserBanner(){
+  return `<section class="banner"><h2>Você ainda não tem um programa ativo.</h2><p>Escolha um programa para começar:</p></section>`;
+}
+function filterBar(){
+  const chips = [['iniciante','Iniciante'],['intermediario','Intermediário'],['avancado','Avançado'],['','Todos']];
+  return `<div class="filterBar" id="filterBar">${chips.map(([v,label]) => `<button class="filterChip ${TSTATE.filter === v ? 'on' : ''}" data-filter="${v}">${label}</button>`).join('')}</div>`;
+}
+
+async function showChooserInline(){
+  const mount = document.getElementById('chooserMount');
+  if (!mount) return;
+  TSTATE.chooserVisible = !TSTATE.chooserVisible;
+  mount.hidden = !TSTATE.chooserVisible;
+  if (!TSTATE.chooserVisible) return;
+  mount.innerHTML = `<section class="card"><h2>Trocar programa</h2><p class="small" style="color:var(--mut);margin-top:-6px">Ao iniciar outro programa, ele substituirá o atual.</p>${filterBar()}<div id="programGrid" class="progGrid"><div class="loading">Carregando catálogo…</div></div></section>`;
+  await loadPrograms();
+  mount.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function loadPrograms(){
+  const grid = document.getElementById('programGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading">Carregando catálogo…</div>';
+  try {
+    const qs = TSTATE.filter ? `?nivel=${encodeURIComponent(TSTATE.filter)}` : '';
+    TSTATE.programs = await api('GET', `/api/treinos/programas${qs}`);
+    grid.innerHTML = TSTATE.programs.length ? TSTATE.programs.map(renderProgramChoice).join('') : '<div class="empty"><p>Nenhum programa encontrado.</p></div>';
+  } catch (e) {
+    grid.innerHTML = `<div class="empty" style="color:var(--err)"><p>${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderProgramChoice(p){
+  return `<article class="progCard">
+    <div class="meta"><span class="nivelTag ${escapeHtml(p.nivel || '')}">${escapeHtml(nivelLabel(p.nivel))}</span><span>${p.duracao_semanas || '—'} semanas</span><span>${p.templates_count || 0} treinos</span></div>
+    <h3>${escapeHtml(p.nome)}</h3>
+    ${p.objetivo ? `<p>${escapeHtml(p.objetivo)}</p>` : ''}
+    <button class="btn full assignProgram" data-id="${escapeHtml(p.id)}">Iniciar este programa</button>
+  </article>`;
+}
+
+async function assignProgram(programId, btn){
+  if (!programId) return;
+  const oldText = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Atribuindo…'; }
+  try {
+    await api('POST','/api/treinos/me/assignments', { program_id:Number(programId) });
+    toast('Programa atribuído ✓');
+    await loadDashboard();
+  } catch (e) {
+    toast('Erro: ' + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = oldText; }
+  }
+}
+
+document.addEventListener('click', (ev) => {
+  const filter = ev.target.closest('.filterChip');
+  if (filter) {
+    TSTATE.filter = filter.dataset.filter || '';
+    document.querySelectorAll('.filterChip').forEach(b => b.classList.toggle('on', b === filter));
+    loadPrograms();
+    return;
+  }
+  const assign = ev.target.closest('.assignProgram');
+  if (assign) {
+    assignProgram(assign.dataset.id, assign);
+    return;
+  }
+  const toggle = ev.target.closest('#toggleChooser');
+  if (toggle) showChooserInline();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!USER.require()) return;
+  applyUserChip();
+  loadDashboard();
 });
