@@ -5,6 +5,7 @@ function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c 
 function corHex(c){ return COR_TO_HEX[(c||'').toLowerCase()] || 'transparent'; }
 function fmtDateTime(v){ return v ? new Date(v).toLocaleString('pt-BR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—'; }
 function pct(v){ const n = Number(v || 0); return Math.max(0, Math.min(100, n)); }
+function min(v){ const n = Number(v || 0); return `${Math.round(n)} min`; }
 
 function ensureUserFromLegacy(user){
   if (!USER.id() && user?.id) USER.set(user);
@@ -34,6 +35,20 @@ function renderOverview(data){
       <div style="flex:1"><b>${escapeHtml(t.aluno_nome)}</b><div class="metaLine">Semana ${t.semana_atual || '—'} · ${escapeHtml(t.nome_treino || 'Treino')}</div></div>
       <a class="btn ghost" href="/personal-aluno.html?id=${encodeURIComponent(t.aluno_id)}">Detalhes</a>
     </div>`).join('') : 'Nenhum treino sugerido ainda.';
+}
+
+function renderAdvancedMetrics(metrics){
+  $('#aderencia30d').textContent = `${pct(metrics?.aderencia_30d)}%`;
+  $('#duracaoMedia30d').textContent = min(metrics?.duracao_media_30d);
+  const inactive = metrics?.alunos_inativos_7d || [];
+  const box = $('#inactiveList');
+  box.className = inactive.length ? '' : 'empty';
+  box.innerHTML = inactive.length ? inactive.map(a => `
+    <a class="inactiveRow" href="/personal-aluno.html?id=${encodeURIComponent(a.id)}">
+      <span class="dot" style="background:#d04848"></span>
+      <div style="flex:1"><b>${escapeHtml(a.name)}</b><div class="metaLine">${a.dias_inativo} dia(s) sem treino</div></div>
+      <span class="btn ghost">Detalhes</span>
+    </a>`).join('') : 'Todos os alunos ativos treinaram nos últimos 7 dias.';
 }
 
 function renderStudents(data){
@@ -68,13 +83,18 @@ async function initPersonal(){
     if (!user) return;
     $('#userChip').textContent = user.name || 'Personal';
     $('#avInit').textContent = (user.name || '?').trim().charAt(0).toUpperCase();
-    const data = await api('GET', '/api/treinos/coach/me/dashboard');
+    const [data, metrics] = await Promise.all([
+      api('GET', '/api/treinos/coach/me/dashboard'),
+      api('GET', '/api/treinos/coach/me/metrics')
+    ]);
     renderOverview(data);
+    renderAdvancedMetrics(metrics);
     renderStudents(data);
   } catch (e) {
     toast('Erro: ' + e.message, true);
     $('#nextList').innerHTML = `<div class="empty" style="color:var(--err)">${escapeHtml(e.message)}</div>`;
     $('#studentGrid').innerHTML = `<div class="empty" style="grid-column:1/-1;color:var(--err)">${escapeHtml(e.message)}</div>`;
+    $('#inactiveList').innerHTML = `<div class="empty" style="color:var(--err)">${escapeHtml(e.message)}</div>`;
   }
 }
 
