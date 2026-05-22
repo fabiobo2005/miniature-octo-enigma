@@ -1,53 +1,71 @@
-# APEX · 90D Recomp App
+# APEX Cloud · Nutrição, Saúde e Treinos
 
-Personal body recomposition coach app — PWA + REST API + PostgreSQL on Azure.
+APEX Cloud é uma PWA de acompanhamento de recomposição corporal com API REST e banco PostgreSQL no Azure. O produto organiza a experiência em três áreas principais:
+
+- **Saúde:** evolução corporal, medidas, suplementos e histórico do aluno.
+- **Dieta:** registro diário de refeições e aderência ao plano alimentar.
+- **Treinos:** catálogo de programas, prescrição, execução de sessões, cronômetro/beeps e histórico de treino.
+- **Portal do Personal:** visão de carteira, métricas de aderência, drill-down de alunos, atribuição/criação de programas e exportação CSV.
+
+URL de produção: <https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io>
 
 ## Stack
 
-- **Frontend:** Static Web App (Free tier) — single-page PWA, Chart.js, vanilla JS
-- **Backend:** Azure Functions (Node.js 20, TypeScript) — HTTP triggers
-- **Database:** PostgreSQL Flexible Server (B1ms, 128 GB Premium SSD P10) — Entra-only auth
-- **Region:** Central US
-- **CI/CD:** GitHub Actions via `azd pipeline config` (OIDC, no secrets)
+- **API:** Express + TypeScript em Node.js 18+.
+- **Web/PWA:** aplicação estática servida junto do container, com JavaScript vanilla e assets PWA.
+- **Banco:** Azure Database for PostgreSQL com autenticação AAD/Entra.
+- **Deploy:** Azure Developer CLI (`azd`) para Azure Container Apps (ACA).
+- **Infra:** Container Apps + Postgres + configuração via variáveis de ambiente.
 
-## Local Development
+## Como rodar localmente
 
 ```bash
-# API
 cd src/api
-cp local.settings.json.example local.settings.json
 npm install
-npm run build
-func start   # http://localhost:7071
-
-# Web
-cd src/web
-npx http-server -p 4280   # http://localhost:4280
-# Or use SWA CLI for combined experience:
-npx @azure/static-web-apps-cli start ./src/web --api-location ./src/api
+npm run dev
 ```
 
+A API roda por padrão na porta configurada em `PORT` ou `3000`. Para desenvolvimento com banco real/local, configure as variáveis esperadas pela API (`DATABASE_URL` ou `PG_HOST`/`PG_DATABASE`/`PG_USER`/credenciais AAD conforme o ambiente).
+
+## Smoke tests
+
+```bash
+cd src/api
+npm run smoke
+# ou contra outra URL
+BASE_URL=http://localhost:3000 npm run smoke
+```
+
+O smoke test consulta endpoints públicos do catálogo de treinos/personals e tenta `/healthz` de forma opcional.
 ## Deploy
 
 ```bash
 azd auth login
-azd env new apex-dev
-azd env set AZURE_LOCATION centralus
-azd env set POSTGRES_ADMIN_OBJECT_ID <your-entra-object-id>
-azd env set POSTGRES_ADMIN_LOGIN <your-entra-upn>
 azd up
 ```
 
-After provision, apply schema:
+Para publicar alterações em um ambiente já provisionado:
+
 ```bash
-ACCESS_TOKEN=$(az account get-access-token --resource-type oss-rdbms --query accessToken -o tsv)
-PGPASSWORD=$ACCESS_TOKEN psql -h <pg-fqdn> -U <your-upn> -d apex -f src/api/db/init.sql
+azd deploy
 ```
 
-## Project Structure
+## Estrutura de pastas
 
-See [`.azure/deployment-plan.md`](./.azure/deployment-plan.md) for full architecture and decisions.
+```text
+.
+├─ azure.yaml              # Configuração azd
+├─ infra/                  # Infraestrutura Azure/Bicep
+├─ docs/                   # Guias de uso e operação
+├─ src/
+│  ├─ api/                 # Express/TypeScript API, schema e scripts
+│  │  ├─ db/init.sql       # Schema e migrations idempotentes
+│  │  ├─ scripts/          # Importadores, seeds e smoke tests
+│  │  └─ src/              # Server, rotas, db, schemas e middleware
+│  └─ web/                 # PWA estática
+└─ CHANGELOG.md            # Histórico de versões/fases
+```
 
-## Migration Notes
+## Uso do produto
 
-`src/web/index.html` was migrated from `C:\Trainner\nutri\guia.html` (v6, single-file). Currently still uses `localStorage`. Phase 2 work: refactor `state` persistence layer to call `/api/evol` while keeping localStorage as offline cache.
+Consulte o guia completo em [docs/USAGE.md](./docs/USAGE.md).

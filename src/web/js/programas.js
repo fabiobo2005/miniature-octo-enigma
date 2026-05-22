@@ -17,7 +17,7 @@ const STATE = {
   currentSessionId: null,
   currentTemplate: null,
   currentProgram: null,
-  totalTimer: { startedAt:null, intervalId:null },
+  totalTimer: { startedAt:null, intervalId:null, lastPersistAt:0 },
   restTimer: { execId:null, remaining:0, intervalId:null, defaultSec:60 },
   saveDebouncers: new Map(),
 };
@@ -169,8 +169,17 @@ async function showSession(sessionId){
     document.querySelectorAll('#execExercises input').forEach(inp => {
       inp.addEventListener('change', () => saveSetFromInput(inp));
     });
-    const localStarted = getLocalStartedAt(sessionId);
-    if (localStarted) activateWorkout(localStarted, { silent:true });
+    const savedState = getSavedSessionState(s);
+    if (savedState && confirm('Retomar sessão anterior?')) {
+      restoreSessionState(savedState);
+      activateWorkout(savedState.started_at, { silent:true });
+      toast('Sessão anterior retomada');
+    } else if (savedState) {
+      clearSavedSessionState(s);
+    } else {
+      const localStarted = getLocalStartedAt(sessionId);
+      if (localStarted) activateWorkout(localStarted, { silent:true });
+    }
   } catch(e){
     document.getElementById('execExercises').innerHTML = `<div style="color:var(--err);padding:16px">${escapeHtml(e.message)}</div>`;
   }
@@ -218,6 +227,7 @@ function confirmStartWorkout(){
   localStorage.setItem(`workout-started-at:${STATE.currentSessionId}`, String(startedAt));
   if (STATE.currentTemplate) STATE.currentTemplate.started_at = new Date(startedAt).toISOString();
   activateWorkout(startedAt);
+  persistSessionState(true);
 }
 
 function activateWorkout(startedAt, opts={}){
@@ -230,6 +240,7 @@ function activateWorkout(startedAt, opts={}){
   updateTotalTimer();
   if (STATE.totalTimer.intervalId) clearInterval(STATE.totalTimer.intervalId);
   STATE.totalTimer.intervalId = setInterval(updateTotalTimer, 1000);
+  if (window.ApexAudio) ApexAudio.startSessionAudio();
   if (!opts.silent) toast('Treino iniciado');
 }
 
@@ -237,12 +248,15 @@ function stopTotalTimer(){
   if (STATE.totalTimer.intervalId) clearInterval(STATE.totalTimer.intervalId);
   STATE.totalTimer.intervalId = null;
   STATE.totalTimer.startedAt = null;
+  STATE.totalTimer.lastPersistAt = 0;
+  if (window.ApexAudio) ApexAudio.stopSessionAudio();
 }
 
 function updateTotalTimer(){
   if (!STATE.totalTimer.startedAt) return;
   const elapsed = Math.floor((Date.now() - STATE.totalTimer.startedAt) / 1000);
   document.getElementById('totalTimerDisplay').textContent = fmtMMSS(elapsed);
+  if (Date.now() - STATE.totalTimer.lastPersistAt >= 5000) persistSessionState();
 }
 
 function renderExerciseCard(ex){
@@ -313,6 +327,7 @@ async function saveSetFromInput(inp){
       await api('POST', '/api/treinos/sets', { exercise_execution_id: execId, set_numero: setNum, reps, carga, rpe });
       inp.style.borderColor = 'var(--pri)';
       setTimeout(() => inp.style.borderColor = '', 600);
+      persistSessionState(true);
     } catch(e){ toast('Erro ao salvar: '+e.message, true); }
   }, 400));
 }
@@ -325,6 +340,7 @@ async function toggleExecDone(execId, btn){
     card.classList.toggle('done', willBeDone);
     btn.classList.toggle('on', willBeDone);
     btn.textContent = willBeDone ? '✓ feito' : 'marcar';
+    persistSessionState(true);
   } catch(e){ toast('Erro: '+e.message, true); }
 }
 
@@ -337,6 +353,7 @@ async function finishSession(){
     const dur = elapsedSec ? Math.max(1, Math.round(elapsedSec/60)) : null;
     await api('PATCH', `/api/treinos/sessions/${STATE.currentSessionId}`, { status:'finished', ...(dur?{duracao_min:dur}:{}) });
     localStorage.removeItem(`workout-started-at:${STATE.currentSessionId}`);
+    clearSavedSessionState();
     stopTotalTimer();
     stopRestTimer();
     toast(`Treino concluído em ${duration} ✓`);
@@ -349,6 +366,7 @@ async function abortSession(){
   try {
     await api('PATCH', `/api/treinos/sessions/${STATE.currentSessionId}`, { status:'aborted' });
     localStorage.removeItem(`workout-started-at:${STATE.currentSessionId}`);
+    clearSavedSessionState();
     stopTotalTimer();
     stopRestTimer();
     toast('Sessão abortada');
@@ -368,6 +386,7 @@ function startRest(execId){
   STATE.restTimer.remaining = STATE.restTimer.defaultSec;
   updateRestDisplay(execId);
   STATE.restTimer.intervalId = setInterval(tickRestTimer, 1000);
+  persistSessionState(true);
 }
 function stopRestTimer(){
   if (STATE.restTimer.intervalId) clearInterval(STATE.restTimer.intervalId);
@@ -399,12 +418,18 @@ function finishRest(execId, shouldBeep){
   if (STATE.restTimer.execId === execId) stopRestTimer();
   if (el) { el.textContent = '00:00'; el.className = 'restClock'; }
   if (card) card.classList.add('rested');
+  persistSessionState(true);
   if (shouldBeep) {
-    beep();
+    const nextName = getNextExerciseName(execId);
+    beep(nextName ? `Próximo: ${nextName}` : '');
     if (navigator.vibrate) navigator.vibrate([180,80,180]);
   }
 }
-function beep(){
+function beep(announcement){
+  if (window.ApexAudio) {
+    ApexAudio.announceThenBeep(announcement || '');
+    return;
+  }
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
@@ -418,10 +443,160 @@ function beep(){
   } catch {}
 }
 
+// ---------- Persistência local da sessão ----------
+function sessionTemplateId(s){ return s?.workout_template_id || s?.template_id || s?.workoutTemplateId || null; }
+function sessionStorageKey(s=STATE.currentTemplate){
+  const programId = s?.program_id;
+  const templateId = sessionTemplateId(s);
+  if (!programId || !templateId) return null;
+  return `apex.session.${programId}.${templateId}`;
+}
+function collectExercisesProgress(){
+  return [...document.querySelectorAll('#execExercises .exerCard')].map((card, index) => ({
+    index,
+    exec_id: Number(card.dataset.execId) || null,
+    exercise_name: card.querySelector('h4')?.textContent || '',
+    done: card.classList.contains('done'),
+    rested: card.classList.contains('rested'),
+    rest_remaining: STATE.restTimer.execId === Number(card.dataset.execId) ? STATE.restTimer.remaining : null,
+    sets: [...card.querySelectorAll('tbody tr[data-set]')].map(tr => ({
+      set_numero: Number(tr.dataset.set),
+      reps: tr.querySelector('input[data-f="reps"]')?.value || '',
+      carga: tr.querySelector('input[data-f="carga"]')?.value || '',
+      rpe: tr.querySelector('input[data-f="rpe"]')?.value || ''
+    }))
+  }));
+}
+function persistSessionState(force=false){
+  if (!STATE.totalTimer.startedAt || !STATE.currentTemplate) return;
+  const key = sessionStorageKey();
+  if (!key) return;
+  const now = Date.now();
+  if (!force && now - STATE.totalTimer.lastPersistAt < 5000) return;
+  STATE.totalTimer.lastPersistAt = now;
+  const payload = {
+    version: 1,
+    session_id: STATE.currentSessionId,
+    program_id: STATE.currentTemplate.program_id,
+    template_id: sessionTemplateId(STATE.currentTemplate),
+    started_at: STATE.totalTimer.startedAt,
+    paused_at: null,
+    saved_at: now,
+    exercises_progress: collectExercisesProgress()
+  };
+  try { localStorage.setItem(key, JSON.stringify(payload)); } catch {}
+}
+function getSavedSessionState(s){
+  const key = sessionStorageKey(s);
+  if (!key) return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!parsed || !parsed.started_at || !parsed.saved_at) return null;
+    if (Date.now() - Number(parsed.saved_at) > 6 * 60 * 60 * 1000) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return parsed;
+  } catch { return null; }
+}
+function clearSavedSessionState(s=STATE.currentTemplate){
+  const key = sessionStorageKey(s);
+  if (key) localStorage.removeItem(key);
+}
+function restoreSessionState(saved){
+  const progress = saved?.exercises_progress || [];
+  const cards = [...document.querySelectorAll('#execExercises .exerCard')];
+  cards.forEach((card, index) => {
+    const execId = Number(card.dataset.execId) || null;
+    const item = progress.find(p => p.exec_id === execId) || progress.find(p => p.index === index);
+    if (!item) return;
+    card.classList.toggle('done', !!item.done);
+    card.classList.toggle('rested', !!item.rested);
+    const btn = card.querySelector('.doneBtn');
+    if (btn) {
+      btn.classList.toggle('on', !!item.done);
+      btn.textContent = item.done ? '✓ feito' : 'marcar';
+    }
+    if (item.rest_remaining != null && Number(item.rest_remaining) > 0) {
+      STATE.restTimer.execId = execId;
+      STATE.restTimer.defaultSec = Number(card.dataset.restSec) || 60;
+      STATE.restTimer.remaining = Number(item.rest_remaining);
+      updateRestDisplay(execId);
+      if (STATE.restTimer.intervalId) clearInterval(STATE.restTimer.intervalId);
+      STATE.restTimer.intervalId = setInterval(tickRestTimer, 1000);
+    }
+    (item.sets || []).forEach(set => {
+      const tr = card.querySelector(`tbody tr[data-set="${set.set_numero}"]`);
+      if (!tr) return;
+      const reps = tr.querySelector('input[data-f="reps"]');
+      const carga = tr.querySelector('input[data-f="carga"]');
+      const rpe = tr.querySelector('input[data-f="rpe"]');
+      if (reps) reps.value = set.reps ?? '';
+      if (carga) carga.value = set.carga ?? '';
+      if (rpe) rpe.value = set.rpe ?? '';
+    });
+  });
+}
+function getNextExerciseName(execId){
+  const cards = [...document.querySelectorAll('#execExercises .exerCard')];
+  const idx = cards.findIndex(card => Number(card.dataset.execId) === Number(execId));
+  const next = idx >= 0 ? cards.slice(idx + 1).find(card => !card.classList.contains('done')) : null;
+  return next?.querySelector('h4')?.textContent?.trim() || '';
+}
+
+// ---------- Configurações de áudio ----------
+function openAudioSettings(){
+  const modal = document.getElementById('audioSettingsModal');
+  if (!modal || !window.ApexAudio) return;
+  const settings = ApexAudio.getSettings();
+  const volume = document.getElementById('audioVolume');
+  const beepType = document.getElementById('audioBeep');
+  const tts = document.getElementById('audioTts');
+  const wake = document.getElementById('audioWakeLock');
+  volume.value = settings.volume;
+  beepType.value = settings.beep;
+  tts.checked = settings.tts;
+  wake.checked = settings.wakeLock;
+  updateAudioVolumeLabel();
+  modal.hidden = false;
+}
+function closeAudioSettings(){
+  const modal = document.getElementById('audioSettingsModal');
+  if (modal) modal.hidden = true;
+}
+function updateAudioVolumeLabel(){
+  const volume = document.getElementById('audioVolume');
+  const label = document.getElementById('audioVolumeValue');
+  if (volume && label) label.textContent = `${volume.value}%`;
+}
+function saveAudioSettingsFromForm(){
+  if (!window.ApexAudio) return;
+  const settings = ApexAudio.saveSettings({
+    volume: Number(document.getElementById('audioVolume')?.value || 70),
+    beep: document.getElementById('audioBeep')?.value || 'simple',
+    tts: !!document.getElementById('audioTts')?.checked,
+    wakeLock: !!document.getElementById('audioWakeLock')?.checked
+  });
+  const status = document.getElementById('totalTimerStatus');
+  if (status) status.textContent = settings.wakeLock ? 'Áudio + Wake Lock ativos' : 'Áudio ativo';
+}
+function testAudioSettings(){
+  saveAudioSettingsFromForm();
+  if (window.ApexAudio) ApexAudio.announceThenBeep('Teste de áudio');
+}
+
 // ---------- bootstrap ----------
 document.addEventListener('DOMContentLoaded', () => {
   if (!USER.require()) return;
   applyUserChip();
+  ['audioVolume','audioBeep','audioTts','audioWakeLock'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => { updateAudioVolumeLabel(); saveAudioSettingsFromForm(); });
+    el.addEventListener('change', saveAudioSettingsFromForm);
+  });
+  const audioModal = document.getElementById('audioSettingsModal');
+  if (audioModal) audioModal.addEventListener('click', ev => { if (ev.target === audioModal) closeAudioSettings(); });
   window.addEventListener('hashchange', route);
   route();
 });

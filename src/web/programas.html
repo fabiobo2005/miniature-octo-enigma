@@ -52,6 +52,20 @@
   .totalTimerBar[hidden]{display:none}
   .totalTimerBar .label{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
   .totalTimerBar .totalTime{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--pri-d);letter-spacing:-.8px}
+  .timerTools{display:flex;align-items:center;gap:8px;justify-content:flex-end;text-align:right}
+  .timerGear{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--surf2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+  .timerGear:hover{background:var(--pri-bg)}
+  .audioModal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:18px}
+  .audioModal[hidden]{display:none}
+  .audioPanel{width:min(430px,100%);background:var(--surf);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.25)}
+  .audioPanel h2{margin:0 0 12px;font-size:18px}
+  .audioField{display:grid;gap:6px;margin:12px 0}
+  .audioField label{font-size:12px;color:var(--mut);font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+  .audioField select,.audioField input[type="range"]{width:100%}
+  .audioToggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+  .audioToggle span{font-weight:700}
+  .audioToggle small{display:block;color:var(--mut);font-size:11px;font-weight:400}
+  .audioPanelActions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
   .execActions{display:flex;gap:8px;margin-top:14px}
   .execActions[hidden]{display:none}
   .exerCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);
@@ -153,7 +167,10 @@
     <div class="crumbs"><a id="execBack" href="#/">← voltar</a></div>
     <div class="totalTimerBar" id="totalTimerBar" hidden>
       <div><div class="label">Tempo total</div><div class="totalTime" id="totalTimerDisplay">00:00</div></div>
-      <div class="small" id="totalTimerStatus">Treino em andamento</div>
+      <div class="timerTools">
+        <div class="small" id="totalTimerStatus">Treino em andamento</div>
+        <button class="timerGear" type="button" onclick="openAudioSettings()" title="Configurações de áudio" aria-label="Configurações de áudio">⚙️</button>
+      </div>
     </div>
     <div class="progHero">
       <h1 id="execTitle">—</h1>
@@ -172,7 +189,32 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="audioModal" id="audioSettingsModal" hidden>
+  <div class="audioPanel" role="dialog" aria-modal="true" aria-labelledby="audioSettingsTitle">
+    <h2 id="audioSettingsTitle">Configurações de áudio</h2>
+    <div class="audioField">
+      <label for="audioVolume">Volume do beep: <span id="audioVolumeValue">70%</span></label>
+      <input id="audioVolume" type="range" min="0" max="100" step="1">
+    </div>
+    <div class="audioField">
+      <label for="audioBeep">Tipo de beep</label>
+      <select id="audioBeep">
+        <option value="simple">Bip simples</option>
+        <option value="double">Bip duplo</option>
+        <option value="bell">Sino</option>
+      </select>
+    </div>
+    <label class="audioToggle"><span>TTS <small>Falar o próximo exercício antes do beep final</small></span><input id="audioTts" type="checkbox"></label>
+    <label class="audioToggle"><span>Wake Lock <small>Mantém a tela ligada durante a sessão</small></span><input id="audioWakeLock" type="checkbox"></label>
+    <div class="audioPanelActions">
+      <button class="btn ghost" type="button" onclick="closeAudioSettings()">Fechar</button>
+      <button class="btn" type="button" onclick="testAudioSettings()">Testar beep</button>
+    </div>
+  </div>
+</div>
+
 <script src="/js/core.js"></script>
+<script src="/js/audio.js"></script>
 <script src="/js/programas.js"></script>
 </body>
 </html>
