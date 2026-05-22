@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="/css/app.css">
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
 <style>
-  .crumbs{display:flex;gap:6px;align-items:center;font-size:13px;margin:10px 0 12px}.crumbs a{color:var(--pri-d);text-decoration:none;font-weight:700}.metricGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}.metricCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow-l)}.metricCard span{display:block;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}.metricCard b{display:block;margin-top:4px;font-size:26px;letter-spacing:-.4px}.progress{height:10px;background:var(--surf2);border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:10px}.progress i{display:block;height:100%;background:var(--grad);width:0}.session{border:1px solid var(--line);border-radius:14px;background:var(--surf2);margin:10px 0;overflow:hidden}.session summary{cursor:pointer;list-style:none;padding:14px;display:flex;gap:10px;align-items:center}.session summary::-webkit-details-marker{display:none}.session summary::after{content:'›';margin-left:auto;color:var(--mut);font-size:22px;transition:.2s}.session[open] summary::after{transform:rotate(90deg)}.dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex:none}.sessBody{padding:0 14px 14px}.exBlock{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:8px}.sets{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}.sets th{text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px}.sets td,.sets th{padding:5px;border-bottom:1px solid var(--line)}.loadWrap{text-align:center;margin:16px 0}.empty{padding:18px;text-align:center;color:var(--mut)}
+  .crumbs{display:flex;gap:6px;align-items:center;font-size:13px;margin:10px 0 12px}.crumbs a{color:var(--pri-d);text-decoration:none;font-weight:700}.metricGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}.metricCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow-l)}.metricCard span{display:block;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}.metricCard b{display:block;margin-top:4px;font-size:26px;letter-spacing:-.4px}.progress{height:10px;background:var(--surf2);border-radius:999px;overflow:hidden;border:1px solid var(--line);margin-top:10px}.progress i{display:block;height:100%;background:var(--grad);width:0}.session{border:1px solid var(--line);border-radius:14px;background:var(--surf2);margin:10px 0;overflow:hidden}.session summary{cursor:pointer;list-style:none;padding:14px;display:flex;gap:10px;align-items:center}.session summary::-webkit-details-marker{display:none}.session summary::after{content:'›';margin-left:auto;color:var(--mut);font-size:22px;transition:.2s}.session[open] summary::after{transform:rotate(90deg)}.dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex:none}.sessBody{padding:0 14px 14px}.exBlock{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:8px}.sets{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}.sets th{text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px}.sets td,.sets th{padding:5px;border-bottom:1px solid var(--line)}.loadWrap{text-align:center;margin:16px 0}.empty{padding:18px;text-align:center;color:var(--mut)}.cardTitleRow{display:flex;align-items:center;justify-content:space-between;gap:10px}.programTools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.programList{display:grid;gap:8px;max-height:360px;overflow:auto}.programRow{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;background:var(--surf2);border:1px solid var(--line);border-radius:12px;padding:10px}.programRow p{margin:4px 0 0}.programTabs{display:flex;gap:8px;margin:0 0 12px}.programTabs .on{background:var(--pri);color:white}.quickForm{display:grid;gap:10px}.quickForm label{display:grid;gap:5px;font-weight:700}.quickForm input,.quickForm select,.quickForm textarea{width:100%}
 </style>
 </head>
 <body>
@@ -25,8 +25,59 @@
 
   <div class="metricGrid"><div class="metricCard"><span>Sessões 30d</span><b id="mSess30">—</b></div><div class="metricCard"><span>Volume 30d</span><b id="mVolume">—</b></div><div class="metricCard"><span>Adesão</span><b id="mAdesao">—</b></div></div>
 
-  <div class="card"><h2>📚 Programa atual</h2><div id="programBox" class="empty">Carregando…</div></div>
+  <div class="card">
+    <div class="cardTitleRow"><h2>📚 Programa do aluno</h2><button class="btn" id="assignProgramBtn" type="button">Atribuir programa</button></div>
+    <div id="programBox" class="empty">Carregando…</div>
+  </div>
   <div class="card"><h2>🗓️ Últimas sessões</h2><div id="sessionsList" class="empty">Carregando…</div><div class="loadWrap"><button class="btn ghost" id="loadMoreBtn">Carregar mais</button></div></div>
+</div>
+
+<div class="scrim" id="programModalScrim" hidden>
+  <div class="modal" id="programModal" role="dialog" aria-modal="true" aria-labelledby="programModalTitle">
+    <div class="modalH">
+      <b id="programModalTitle">Atribuir programa</b>
+      <button class="iconBtn" id="closeProgramModalBtn" type="button" aria-label="Fechar">×</button>
+    </div>
+    <div class="programTabs">
+      <button class="btn ghost on" type="button" data-program-tab="catalog">Catálogo</button>
+      <button class="btn ghost" type="button" data-program-tab="create">Criar novo programa</button>
+    </div>
+    <section id="programCatalogTab">
+      <div class="programTools">
+        <label>Nível
+          <select id="programNivelFilter">
+            <option value="">Todos</option>
+            <option value="iniciante">Iniciante</option>
+            <option value="intermediario">Intermediário</option>
+            <option value="avancado">Avançado</option>
+          </select>
+        </label>
+        <button class="btn ghost" id="reloadProgramsBtn" type="button">Atualizar</button>
+      </div>
+      <div id="programCatalogList" class="programList"><div class="empty">Carregando…</div></div>
+    </section>
+    <section id="programCreateTab" hidden>
+      <form id="quickProgramForm" class="quickForm">
+        <label>Nível
+          <select name="nivel" required>
+            <option value="iniciante">Iniciante</option>
+            <option value="intermediario">Intermediário</option>
+            <option value="avancado">Avançado</option>
+          </select>
+        </label>
+        <label>Nome opcional
+          <input name="nome" maxlength="120" placeholder="Deixe vazio para auto-numerar">
+        </label>
+        <label>Objetivo
+          <textarea name="objetivo" rows="4" maxlength="2000" placeholder="Ex.: hipertrofia, recomposição, condicionamento…"></textarea>
+        </label>
+        <label>Duração (semanas)
+          <input name="duracao_semanas" type="number" min="1" max="52" value="4" required>
+        </label>
+        <button class="btn" type="submit">Criar e atribuir</button>
+      </form>
+    </section>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 <script src="/js/core.js"></script>
