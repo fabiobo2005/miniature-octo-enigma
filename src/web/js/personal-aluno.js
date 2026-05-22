@@ -1,17 +1,42 @@
 // ===== personal-aluno.js : drill-down do aluno =====
 const COR_TO_HEX = { amarelo:'#f0c419', verde:'#3aa55a', vermelho:'#d04848', azul:'#3a73c4', laranja:'#e58a2f', roxo:'#7e57c2', rosa:'#e26a8a', cinza:'#9aa0a6', preto:'#222', aerobio:'#2a9d8f', 'aeróbio':'#2a9d8f' };
-const PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE = 200;
+const DETAIL_PAGE_SIZE = 20;
 const NIVEL_LABEL = { iniciante:'Iniciante', intermediario:'Intermediário', avancado:'Avançado' };
 let ALUNO_ID = null;
 let offset = 0;
 let total = 0;
+let renderedSessions = 0;
+let historySessions = [];
 let catalogPrograms = [];
+let weeklyChart = null;
 
 function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function corHex(c){ return COR_TO_HEX[(c||'').toLowerCase()] || 'transparent'; }
 function fmtDateTime(v){ return v ? new Date(v).toLocaleString('pt-BR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—'; }
+function fmtDateOnly(v){ return v ? new Date(v).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' }) : '—'; }
 function pct(v){ const n = Number(v || 0); return Math.max(0, Math.min(100, n)); }
 function kg(v){ const n = Number(v || 0); return `${n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`; }
+function sessionDurationMin(s){
+  const direct = Number(s.duracao_min ?? s.duration_min ?? 0);
+  if (direct > 0) return Math.round(direct);
+  if (s.started_at && s.finished_at) {
+    const diff = (new Date(s.finished_at).getTime() - new Date(s.started_at).getTime()) / 60000;
+    if (Number.isFinite(diff) && diff > 0) return Math.round(diff);
+  }
+  return null;
+}
+function sessionIntensity(s){
+  if (s.intensidade) return s.intensidade;
+  if (s.intensity) return s.intensity;
+  if (s.pse == null) return '—';
+  const pse = Number(s.pse);
+  if (!Number.isFinite(pse)) return '—';
+  if (pse <= 3) return 'leve';
+  if (pse <= 6) return 'moderado';
+  if (pse <= 8) return 'forte';
+  return 'maximo';
+}
 
 function ensureUserFromLegacy(user){ if (!USER.id() && user?.id) USER.set(user); }
 async function requirePersonal(){
@@ -65,20 +90,123 @@ function renderSession(s){
   </details>`;
 }
 
+function updateLoadMoreVisibility(){
+  $('#loadMoreBtn').hidden = renderedSessions >= historySessions.length && offset >= total;
+}
+
+function renderDetailedSessions(reset){
+  if (reset) {
+    renderedSessions = 0;
+    $('#sessionsList').innerHTML = '';
+  }
+  const next = historySessions.slice(renderedSessions, renderedSessions + DETAIL_PAGE_SIZE);
+  const html = next.map(renderSession).join('');
+  if (!renderedSessions) $('#sessionsList').innerHTML = html || '<div class="empty">Nenhuma sessão registrada.</div>';
+  else $('#sessionsList').insertAdjacentHTML('beforeend', html);
+  renderedSessions += next.length;
+  updateLoadMoreVisibility();
+}
+
+function renderLastSessionsTable(){
+  const rows = historySessions.slice(0, 10);
+  const box = $('#lastSessionsTable');
+  box.className = rows.length ? '' : 'empty';
+  box.innerHTML = rows.length ? `<table class="sessionTable"><thead><tr><th>Data</th><th>Programa</th><th>Intensidade</th><th>Duração</th></tr></thead><tbody>${rows.map(s => {
+    const dur = sessionDurationMin(s);
+    return `<tr><td>${escapeHtml(fmtDateOnly(s.started_at || s.data))}</td><td>${escapeHtml(s.programa_nome || s.program_nome || s.nome_treino || '—')}</td><td>${escapeHtml(sessionIntensity(s))}</td><td>${dur == null ? '—' : `${dur} min`}</td></tr>`;
+  }).join('')}</tbody></table>` : 'Nenhuma sessão registrada.';
+}
+
+function startOfWeek(date){
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  const delta = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - delta);
+  return d;
+}
+function keyDate(d){ return d.toISOString().slice(0,10); }
+
+function renderWeeklyChart(){
+  const canvas = $('#weeklySessionsChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const current = startOfWeek(new Date());
+  const weeks = [];
+  for (let i = 7; i >= 0; i--) {
+    const d = new Date(current);
+    d.setDate(current.getDate() - (i * 7));
+    weeks.push({ key: keyDate(d), label: d.toLocaleDateString('pt-BR', { day:'2-digit', month:'short' }), count: 0 });
+  }
+  const firstWeek = new Date(weeks[0].key + 'T00:00:00');
+  historySessions.forEach(s => {
+    const raw = s.started_at || s.data;
+    if (!raw) return;
+    const d = new Date(raw);
+    if (d < firstWeek) return;
+    const key = keyDate(startOfWeek(d));
+    const bucket = weeks.find(w => w.key === key);
+    if (bucket) bucket.count += 1;
+  });
+  if (weeklyChart) weeklyChart.destroy();
+  const styles = getComputedStyle(document.body);
+  weeklyChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: weeks.map(w => w.label), datasets: [{ label: 'Sessões', data: weeks.map(w => w.count), backgroundColor: styles.getPropertyValue('--pri').trim() || '#7BC4A4', borderRadius: 8 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+
+function csvEscape(v){ return `"${String(v ?? '').replace(/"/g, '""')}"`; }
+function exportCsv(){
+  if (!historySessions.length) { toast('Sem histórico para exportar.', true); return; }
+  const header = ['data','programa','duracao_min','intensidade'];
+  const lines = historySessions.map(s => [
+    fmtDateOnly(s.started_at || s.data),
+    s.programa_nome || s.program_nome || s.nome_treino || '',
+    sessionDurationMin(s) ?? '',
+    sessionIntensity(s)
+  ].map(csvEscape).join(','));
+  const blob = new Blob(['\ufeff' + [header.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `relatorio-aluno-${ALUNO_ID}-${todayStr()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function loadDashboard(){
   const data = await api('GET', `/api/treinos/coach/alunos/${encodeURIComponent(ALUNO_ID)}/dashboard`);
   renderDashboard(data);
 }
 
-async function loadHistory(reset){
-  if (reset) { offset = 0; total = 0; $('#sessionsList').innerHTML = '<div class="empty">Carregando…</div>'; }
-  const data = await api('GET', `/api/treinos/coach/alunos/${encodeURIComponent(ALUNO_ID)}/historico?limit=${PAGE_SIZE}&offset=${offset}`);
+async function fetchHistoryPage(){
+  const data = await api('GET', `/api/treinos/coach/alunos/${encodeURIComponent(ALUNO_ID)}/historico?limit=${HISTORY_PAGE_SIZE}&offset=${offset}`);
   total = data.total || 0;
-  const html = (data.sessoes || []).map(renderSession).join('');
-  if (offset === 0) $('#sessionsList').innerHTML = html || '<div class="empty">Nenhuma sessão registrada.</div>';
-  else $('#sessionsList').insertAdjacentHTML('beforeend', html);
-  offset += (data.sessoes || []).length;
-  $('#loadMoreBtn').hidden = offset >= total;
+  const sessoes = data.sessoes || [];
+  historySessions = historySessions.concat(sessoes);
+  offset += sessoes.length;
+}
+
+async function loadHistory(reset){
+  if (reset) {
+    offset = 0;
+    total = 0;
+    renderedSessions = 0;
+    historySessions = [];
+    $('#sessionsList').innerHTML = '<div class="empty">Carregando…</div>';
+    $('#lastSessionsTable').innerHTML = '<div class="empty">Carregando…</div>';
+    await fetchHistoryPage();
+    renderDetailedSessions(true);
+    renderLastSessionsTable();
+    renderWeeklyChart();
+    return;
+  }
+  if (renderedSessions >= historySessions.length && offset < total) await fetchHistoryPage();
+  renderDetailedSessions(false);
+  renderLastSessionsTable();
+  renderWeeklyChart();
 }
 
 function openProgramModal(){
@@ -174,12 +302,14 @@ async function initAluno(){
     const user = await requirePersonal();
     if (!user) return;
     bindProgramModal();
+    $('#exportCsvBtn').addEventListener('click', exportCsv);
     await loadDashboard();
     await loadHistory(true);
     $('#loadMoreBtn').addEventListener('click', () => loadHistory(false).catch(e => toast('Erro: '+e.message, true)));
   } catch (e) {
     toast('Erro: ' + e.message, true);
     $('#sessionsList').innerHTML = `<div class="empty" style="color:var(--err)">${escapeHtml(e.message)}</div>`;
+    $('#lastSessionsTable').innerHTML = `<div class="empty" style="color:var(--err)">${escapeHtml(e.message)}</div>`;
   }
 }
 

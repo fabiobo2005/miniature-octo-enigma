@@ -1014,9 +1014,23 @@ programasRouter.get('/coach/alunos/:alunoId/historico', validate(coachHistoryQue
       )).rows[0]?.total ?? 0);
 
       const sessoes = (await c.query(
-        `SELECT s.id, s.started_at, s.finished_at, s.status, wt.cor, wt.nome_treino, s.semana_numero
+        `SELECT s.id, s.started_at, s.finished_at, s.data, s.status, wt.cor, wt.nome_treino,
+                s.semana_numero, p.nome AS programa_nome,
+                COALESCE(
+                  s.duracao_min,
+                  CASE WHEN s.finished_at IS NOT NULL THEN ROUND(EXTRACT(EPOCH FROM (s.finished_at - s.started_at)) / 60)::int ELSE NULL END
+                ) AS duracao_min,
+                s.pse,
+                CASE
+                  WHEN s.pse IS NULL THEN NULL
+                  WHEN s.pse <= 3 THEN 'leve'
+                  WHEN s.pse <= 6 THEN 'moderado'
+                  WHEN s.pse <= 8 THEN 'forte'
+                  ELSE 'maximo'
+                END AS intensidade
            FROM treinos.workout_session s
            LEFT JOIN treinos.workout_template wt ON wt.id = s.workout_template_id
+           LEFT JOIN treinos.program p ON p.id = s.program_id
           WHERE s.user_id=$1
           ORDER BY s.started_at DESC, s.id DESC
           LIMIT $2 OFFSET $3`,
@@ -1479,5 +1493,71 @@ programasRouter.post('/coach/alunos/:alunoId/assign-program', validate(assignCoa
     if (data.kind === 'not_coach') return res.status(403).json({ error: 'not coach of aluno' });
     if (data.kind === 'program_not_found') return res.status(404).json({ error: 'program not found or inactive' });
     res.status(201).json({ assignment: data.assignment, program: data.program });
+  } catch (e) { next(e); }
+});
+
+// === FASE 5 L ===
+programasRouter.get('/coach/me/metrics', async (req, res, next) => {
+  try {
+    const coachUid = requireUid(req, res); if (!coachUid) return;
+
+    const data = await withClient(async c => {
+      const isPersonal = await assertPersonalUser(c, coachUid);
+      if (!isPersonal) return null;
+
+      const summary = (await c.query(
+        `WITH alunos AS (
+           SELECT ca.aluno_user_id, au.name, ca.started_on
+             FROM treinos.coach_assignment ca
+             JOIN app.user au ON au.id = ca.aluno_user_id AND au.active = TRUE
+            WHERE ca.coach_user_id=$1 AND ca.status='ativo'
+         ), logs30 AS (
+           SELECT wl.user_id, wl.duration_min
+             FROM treinos.workout_log wl
+             JOIN alunos a ON a.aluno_user_id = wl.user_id
+            WHERE wl.trained_on >= CURRENT_DATE - INTERVAL '29 days'
+         )
+         SELECT (SELECT COUNT(*)::int FROM alunos) AS alunos_ativos,
+                (SELECT COUNT(*)::int FROM logs30) AS sessoes_realizadas_30d,
+                (SELECT ROUND(AVG(duration_min))::int FROM logs30 WHERE duration_min IS NOT NULL) AS duracao_media_30d`,
+        [coachUid]
+      )).rows[0];
+
+      const alunosInativos = (await c.query(
+        `WITH alunos AS (
+           SELECT ca.aluno_user_id AS id, au.name, ca.started_on
+             FROM treinos.coach_assignment ca
+             JOIN app.user au ON au.id = ca.aluno_user_id AND au.active = TRUE
+            WHERE ca.coach_user_id=$1 AND ca.status='ativo'
+         ), ultimo AS (
+           SELECT a.id, a.name, a.started_on, MAX(wl.trained_on) AS ultimo_treino
+             FROM alunos a
+             LEFT JOIN treinos.workout_log wl ON wl.user_id = a.id
+            GROUP BY a.id, a.name, a.started_on
+         )
+         SELECT id, name,
+                GREATEST(0, (CURRENT_DATE - COALESCE(ultimo_treino, started_on))::int) AS dias_inativo
+           FROM ultimo
+          WHERE ultimo_treino IS NULL OR ultimo_treino < CURRENT_DATE - INTERVAL '7 days'
+          ORDER BY dias_inativo DESC, name`,
+        [coachUid]
+      )).rows;
+
+      const alunosAtivos = Number(summary?.alunos_ativos || 0);
+      const realizadas = Number(summary?.sessoes_realizadas_30d || 0);
+      // Heurística da Fase 5: treino esperado = 4 sessões/semana por aluno ativo por 4 semanas.
+      // Usamos treinos.workout_log como registro simplificado de treino realizado no período de 30 dias.
+      const esperadas = alunosAtivos * 4 * 4;
+      const aderencia = esperadas > 0 ? Math.min(100, Math.round((realizadas / esperadas) * 100)) : 0;
+
+      return {
+        aderencia_30d: aderencia,
+        duracao_media_30d: Number(summary?.duracao_media_30d || 0),
+        alunos_inativos_7d: alunosInativos.map(a => ({ id: a.id, name: a.name, dias_inativo: Number(a.dias_inativo || 0) })),
+      };
+    });
+
+    if (!data) return res.status(403).json({ error: 'personal role required' });
+    res.json(data);
   } catch (e) { next(e); }
 });
