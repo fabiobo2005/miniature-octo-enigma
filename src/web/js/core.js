@@ -133,6 +133,10 @@ async function logoutUser(){
       await Promise.all(keys.map(k => caches.delete(k)));
     }
   } catch (e) { console.warn('cache clear failed', e); }
+  if (window.apexAuth?.logout) {
+    await window.apexAuth.logout();
+    return;
+  }
   // navega para home — replace evita botão "voltar" reabrir sessão antiga
   location.replace('/');
 }
