@@ -86,3 +86,20 @@ canônicos e variações conhecidas. Quando o importer encontra um nome novo,
 ele cria automaticamente uma entrada em `exercise_catalog` e um alias
 correspondente em `exercise_alias` (origem `importer`), preservando o nome
 original também no `exercise_prescription.nome_original` e em `raw_row`.
+
+## Seed de programas curados
+
+Além do importer de planilhas, há um seed idempotente para carregar 9 programas curados a partir de `scripts/seed-programas.json`.
+
+```bash
+npm run seed:programas
+# ou
+npx tsx scripts/seed-programas.ts
+
+# Recria programas já existentes pelo nome, apagando filhos via CASCADE
+npm run seed:programas -- --force
+# ou
+npx tsx scripts/seed-programas.ts --force
+```
+
+O seed cria registros em `treinos.program`, `program_week`, `workout_template`, `exercise_catalog`, `exercise_alias`, `exercise_prescription` e registra a execução em `treinos.import_run` com `tipo='seed-json'` quando a coluna existir.
