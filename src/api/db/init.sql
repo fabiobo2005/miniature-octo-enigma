@@ -531,3 +531,75 @@ BEGIN
     INSERT INTO app.schema_migrations(version) VALUES ('v14-subfase-h-program-assignment-source');
   END IF;
 END $mig14$;
+
+-- ============================================================================
+-- MIGRATION v15-entra-auth
+-- Entra ID auth, admin role, pending/disabled workflow, and audit log.
+-- ============================================================================
+DO $mig15$
+DECLARE
+  constraint_name text;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='v15-entra-auth') THEN
+    ALTER TABLE app."user" DROP CONSTRAINT IF EXISTS user_role_check;
+
+    SELECT conname INTO constraint_name
+      FROM pg_constraint
+     WHERE conrelid = 'app."user"'::regclass
+       AND contype = 'c'
+       AND pg_get_constraintdef(oid) LIKE '%role%'
+     LIMIT 1;
+
+    IF constraint_name IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE app."user" DROP CONSTRAINT %I', constraint_name);
+    END IF;
+
+    ALTER TABLE app."user"
+      ADD CONSTRAINT user_role_check CHECK (role IN ('aluno','personal','admin'));
+
+    ALTER TABLE app."user" ADD COLUMN IF NOT EXISTS entra_object_id TEXT;
+    ALTER TABLE app."user" ADD COLUMN IF NOT EXISTS upn TEXT;
+    ALTER TABLE app."user" ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'
+      CHECK (status IN ('pending','active','disabled'));
+    ALTER TABLE app."user" ADD COLUMN IF NOT EXISTS specialization TEXT;
+    ALTER TABLE app."user" ADD COLUMN IF NOT EXISTS bio TEXT;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+       WHERE conrelid = 'app."user"'::regclass
+         AND contype = 'u'
+         AND conname = 'user_entra_object_id_key'
+    ) THEN
+      ALTER TABLE app."user" ADD CONSTRAINT user_entra_object_id_key UNIQUE (entra_object_id);
+    END IF;
+
+    CREATE INDEX IF NOT EXISTS idx_user_status ON app."user"(status);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_entra_unique ON app."user"(entra_object_id) WHERE entra_object_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_user_entra ON app."user"(entra_object_id);
+
+    UPDATE app."user"
+       SET role='admin', status='active', name='MOD Administrator',
+           entra_object_id='0afe4b17-3283-4e3d-978b-8c24ac4567eb',
+           upn='admin@MngEnvMCAP198698.onmicrosoft.com'
+     WHERE email='admin@MngEnvMCAP198698.onmicrosoft.com'
+       AND entra_object_id IS NULL;
+
+    INSERT INTO app."user" (id, name, email, role, status, entra_object_id, upn)
+    VALUES (gen_random_uuid(), 'MOD Administrator', 'admin@MngEnvMCAP198698.onmicrosoft.com',
+            'admin', 'active', '0afe4b17-3283-4e3d-978b-8c24ac4567eb', 'admin@MngEnvMCAP198698.onmicrosoft.com')
+    ON CONFLICT (entra_object_id) DO UPDATE SET role='admin', status='active', name=EXCLUDED.name;
+
+    CREATE TABLE IF NOT EXISTS app.audit_log (
+      id          SERIAL PRIMARY KEY,
+      actor_id    UUID,
+      action      TEXT NOT NULL,
+      target_type TEXT,
+      target_id   TEXT,
+      details     JSONB,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON app.audit_log(created_at DESC);
+
+    INSERT INTO app.schema_migrations(version) VALUES ('v15-entra-auth');
+  END IF;
+END $mig15$;

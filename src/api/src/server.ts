@@ -8,6 +8,9 @@ import { dietaRouter } from './routes/dieta';
 import { treinosRouter } from './routes/treinos';
 import { programasRouter } from './routes/programas';
 import { usersRouter } from './routes/users';
+import { adminRouter } from './routes/admin';
+import { authRouter } from './routes/auth';
+import { requireAuth } from './middleware/auth';
 
 const app = express();
 
@@ -24,8 +27,8 @@ const corsOptions: cors.CorsOptions = {
     return cb(new Error(`Origin ${origin} not allowed by CORS`));
   },
   credentials: false,
-  allowedHeaders: ['Content-Type', 'X-User-Id', 'X-Admin-Secret'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type', 'X-User-Id', 'X-Admin-Secret'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 };
 app.use(cors(corsOptions));
 
@@ -105,7 +108,12 @@ app.get('/api/db/inspect', requireAdminSecret, async (_req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// ============ ROUTERS ============
+// ============ PUBLIC ROUTERS ============
+app.use('/api/auth', authRouter);
+
+// ============ AUTHENTICATED ROUTERS ============
+app.use(requireAuth);
+app.use('/api/admin',   adminRouter);
 app.use('/api/users',   usersRouter);
 app.use('/api/saude',   saudeRouter);
 app.use('/api/dieta',   dietaRouter);
