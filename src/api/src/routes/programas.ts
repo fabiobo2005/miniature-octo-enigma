@@ -104,8 +104,8 @@ programasRouter.get('/programas/:id/templates/:templateId', async (req, res, nex
       const exercicios = (await c.query(
         `SELECT ep.id, ep.ordem, ep.series, ep.reps, ep.cadencia, ep.intervalo_seg,
                 ep.metodo, ep.observacoes, ep.carga_sugerida, ep.nome_original,
-                ec.id AS exercise_id, ec.nome AS exercise_nome, ec.grupo_muscular,
-                ec.equipamento, ec.lateralidade,
+                ec.id AS exercise_id, ec.nome_padrao AS exercise_nome, ec.grupo_muscular,
+                ec.equipamento,
                 (SELECT jsonb_agg(jsonb_build_object('tipo', em.tipo, 'url', em.url, 'titulo', em.titulo)
                                   ORDER BY em.id)
                    FROM treinos.exercise_media em WHERE em.exercise_catalog_id = ec.id) AS media
@@ -241,7 +241,7 @@ programasRouter.get('/sessions/:id', async (req, res, next) => {
       if (!s) return null;
       const execs = (await c.query(
         `SELECT ee.id, ee.ordem, ee.concluido, ee.observacao_aluno,
-                ee.exercise_catalog_id, ec.nome AS exercise_nome, ec.grupo_muscular,
+                ee.exercise_catalog_id, ec.nome_padrao AS exercise_nome, ec.grupo_muscular,
                 ee.prescription_id,
                 ep.series, ep.reps, ep.cadencia, ep.intervalo_seg, ep.metodo,
                 ep.carga_sugerida, ep.nome_original,

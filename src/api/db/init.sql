@@ -410,3 +410,59 @@ BEGIN
     INSERT INTO app.schema_migrations(version) VALUES ('v8.1-program-nivel-not-null');
   END IF;
 END $mig$;
+
+-- ============================================================================
+-- MIGRATION v9-role-and-program-assignment
+-- 1) Adiciona coluna `role` em app.user (aluno/personal)
+-- 2) Cria tabela treinos.program_assignment para vincular aluno ao programa
+--    em execução, permitindo calcular semana atual e sugerir próximo treino.
+-- ============================================================================
+DO $mig9$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='v9-role-and-program-assignment') THEN
+
+    -- 1) role
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='app' AND table_name='user' AND column_name='role'
+    ) THEN
+      ALTER TABLE app."user"
+        ADD COLUMN role TEXT NOT NULL DEFAULT 'aluno'
+          CHECK (role IN ('aluno','personal'));
+      CREATE INDEX IF NOT EXISTS idx_user_role ON app."user"(role) WHERE active = TRUE;
+    END IF;
+
+    -- Backfill: quem tem goal começando com "Personal" vira personal
+    UPDATE app."user"
+       SET role = 'personal'
+     WHERE COALESCE(goal,'') ILIKE 'Personal%'
+       AND role <> 'personal';
+
+    -- 2) program_assignment
+    CREATE TABLE IF NOT EXISTS treinos.program_assignment (
+      id              SERIAL PRIMARY KEY,
+      aluno_user_id   UUID NOT NULL REFERENCES app."user"(id) ON DELETE CASCADE,
+      program_id      INTEGER NOT NULL REFERENCES treinos.program(id) ON DELETE CASCADE,
+      coach_user_id   UUID REFERENCES app."user"(id) ON DELETE SET NULL,
+      started_on      DATE NOT NULL DEFAULT CURRENT_DATE,
+      ended_on        DATE,
+      status          TEXT NOT NULL DEFAULT 'ativo'
+                       CHECK (status IN ('ativo','concluido','cancelado','pausado')),
+      observacoes     TEXT,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    -- 1 atribuição ATIVA por aluno
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_program_assign_aluno_ativo
+      ON treinos.program_assignment(aluno_user_id) WHERE status = 'ativo';
+    CREATE INDEX IF NOT EXISTS idx_program_assign_program ON treinos.program_assignment(program_id);
+    CREATE INDEX IF NOT EXISTS idx_program_assign_coach   ON treinos.program_assignment(coach_user_id);
+
+    DROP TRIGGER IF EXISTS trg_program_assignment_updated_at ON treinos.program_assignment;
+    CREATE TRIGGER trg_program_assignment_updated_at
+      BEFORE UPDATE ON treinos.program_assignment
+      FOR EACH ROW EXECUTE FUNCTION treinos.tg_set_updated_at();
+
+    INSERT INTO app.schema_migrations(version) VALUES ('v9-role-and-program-assignment');
+  END IF;
+END $mig9$;
