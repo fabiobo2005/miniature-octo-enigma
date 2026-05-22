@@ -8,7 +8,7 @@ export const usersRouter = Router();
 usersRouter.get('/', async (_req, res, next) => {
   try {
     const rows = await withClient(async c => (await c.query(
-      `SELECT id, name, email, avatar_url, birth_date, height_cm, goal, created_at
+      `SELECT id, name, email, avatar_url, birth_date, height_cm, goal, role, created_at
        FROM app.user WHERE active = TRUE ORDER BY name`
     )).rows);
     res.json(rows);
@@ -17,11 +17,11 @@ usersRouter.get('/', async (_req, res, next) => {
 
 usersRouter.post('/', validate(createUserSchema), async (req, res, next) => {
   try {
-    const { name, email, avatar_url, birth_date, height_cm, goal } = req.body;
+    const { name, email, avatar_url, birth_date, height_cm, goal, role } = req.body;
     const row = await withClient(async c => (await c.query(
-      `INSERT INTO app.user (name, email, avatar_url, birth_date, height_cm, goal)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [name, email ?? null, avatar_url ?? null, birth_date ?? null, height_cm ?? null, goal ?? null]
+      `INSERT INTO app.user (name, email, avatar_url, birth_date, height_cm, goal, role)
+       VALUES ($1,$2,$3,$4,$5,$6, COALESCE($7,'aluno')) RETURNING *`,
+      [name, email ?? null, avatar_url ?? null, birth_date ?? null, height_cm ?? null, goal ?? null, role ?? null]
     )).rows[0]);
     res.status(201).json(row);
   } catch (e: any) {
@@ -42,14 +42,15 @@ usersRouter.get('/:id', async (req, res, next) => {
 
 usersRouter.put('/:id', validate(updateUserSchema), async (req, res, next) => {
   try {
-    const { name, email, avatar_url, birth_date, height_cm, goal } = req.body;
+    const { name, email, avatar_url, birth_date, height_cm, goal, role } = req.body;
     const row = await withClient(async c => (await c.query(
       `UPDATE app.user SET
          name=COALESCE($2,name), email=COALESCE($3,email), avatar_url=COALESCE($4,avatar_url),
          birth_date=COALESCE($5,birth_date), height_cm=COALESCE($6,height_cm), goal=COALESCE($7,goal),
+         role=COALESCE($8,role),
          updated_at=now()
        WHERE id=$1 AND active=TRUE RETURNING *`,
-      [req.params.id, name ?? null, email ?? null, avatar_url ?? null, birth_date ?? null, height_cm ?? null, goal ?? null]
+      [req.params.id, name ?? null, email ?? null, avatar_url ?? null, birth_date ?? null, height_cm ?? null, goal ?? null, role ?? null]
     )).rows[0]);
     if (!row) return res.status(404).json({ error: 'not found' });
     res.json(row);

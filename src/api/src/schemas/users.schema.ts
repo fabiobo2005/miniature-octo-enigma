@@ -8,6 +8,7 @@ const baseUser = {
   birth_date: isoDate.nullable().optional(),
   height_cm: positiveInt.max(300).nullable().optional(),
   goal: goalEnum.nullable().optional(),
+  role: z.enum(['aluno','personal']).optional(),
 };
 
 export const createUserSchema = z.object(baseUser).strict();
@@ -19,4 +20,5 @@ export const updateUserSchema = z.object({
   birth_date: baseUser.birth_date,
   height_cm: baseUser.height_cm,
   goal: baseUser.goal,
+  role: baseUser.role,
 }).strict();
