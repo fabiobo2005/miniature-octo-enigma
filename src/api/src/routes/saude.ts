@@ -10,14 +10,12 @@ import {
 
 export const saudeRouter = Router();
 
-// helper: extrai user_id de query (GET/DELETE) ou body (POST/PUT). Retorna null se ausente.
 function uid(req: Request): string | null {
-  const v = (req.query.user_id || req.body?.user_id || req.headers['x-user-id']) as string | undefined;
-  return v ? String(v) : null;
+  return req.user?.id || null;
 }
 function requireUid(req: Request, res: Response): string | null {
   const u = uid(req);
-  if (!u) { res.status(400).json({ error: 'user_id required' }); return null; }
+  if (!u) { res.status(401).json({ error: 'unauthorized' }); return null; }
   return u;
 }
 

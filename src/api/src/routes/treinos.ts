@@ -6,9 +6,9 @@ import { createWorkoutSchema, updateWorkoutSchema } from '../schemas/treinos.sch
 export const treinosRouter = Router();
 
 function requireUid(req: Request, res: Response): string | null {
-  const v = (req.query.user_id || req.body?.user_id || req.headers['x-user-id']) as string | undefined;
-  if (!v) { res.status(400).json({ error: 'user_id required' }); return null; }
-  return String(v);
+  const v = req.user?.id;
+  if (!v) { res.status(401).json({ error: 'unauthorized' }); return null; }
+  return v;
 }
 
 // ============ WORKOUT LOG ============

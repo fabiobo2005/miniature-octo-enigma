@@ -8,7 +8,7 @@ const baseUser = {
   birth_date: isoDate.nullable().optional(),
   height_cm: positiveInt.max(300).nullable().optional(),
   goal: goalEnum.nullable().optional(),
-  role: z.enum(['aluno','personal']).optional(),
+  role: z.enum(['aluno','personal','admin']).optional(),
 };
 
 export const createUserSchema = z.object(baseUser).strict();
