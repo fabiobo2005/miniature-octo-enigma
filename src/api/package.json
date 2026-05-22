@@ -8,7 +8,8 @@
     "watch": "tsc -w",
     "clean": "rimraf dist",
     "start": "node dist/src/server.js",
-    "import:treinos": "tsc && node dist/scripts/import-treinos.js"
+    "import:treinos": "tsc && node dist/scripts/import-treinos.js",
+    "seed:programas": "tsx scripts/seed-programas.ts"
   },
   "dependencies": {
     "@azure/identity": "^4.4.1",
@@ -24,6 +25,7 @@
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.6",
     "rimraf": "^6.0.1",
+    "tsx": "^4.22.3",
     "typescript": "^5.5.0"
   }
 }
