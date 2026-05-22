@@ -5,7 +5,7 @@ const COR_TO_HEX = {
   roxo:'#7e57c2', rosa:'#e26a8a', cinza:'#9aa0a6', preto:'#222', aerobio:'#2a9d8f', 'aeróbio':'#2a9d8f'
 };
 
-const TSTATE = { user:null, atual:null, proximo:null, sessions:[], programs:[], filter:'', chooserVisible:false };
+const TSTATE = { user:null, atual:null, proximo:null, coach:null, sessions:[], programs:[], personals:[], filter:'', chooserVisible:false, noProgramTab:'' };
 
 function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function corHex(c){ return COR_TO_HEX[String(c || '').toLowerCase()] || '#9aa0a6'; }
@@ -34,12 +34,14 @@ async function loadDashboard(){
   app().innerHTML = '<div class="loading">Carregando treinos…</div>';
   try {
     await loadUser();
-    const [atual, proximo] = await Promise.all([
+    const [atual, proximo, coach] = await Promise.all([
       api('GET','/api/treinos/me/assignments/atual'),
-      api('GET','/api/treinos/me/proximo-treino')
+      api('GET','/api/treinos/me/proximo-treino'),
+      api('GET','/api/treinos/me/coach')
     ]);
     TSTATE.atual = atual;
     TSTATE.proximo = proximo;
+    TSTATE.coach = coach;
     TSTATE.sessions = atual?.assignment ? await api('GET','/api/treinos/sessions?limit=200') : [];
     render();
   } catch (e) {
@@ -159,13 +161,46 @@ function renderSuggestion(p){
 }
 
 async function renderChooserOnly(){
-  app().innerHTML = `${chooserBanner()}<section class="card"><h2>Escolher programa</h2>${filterBar()}<div id="programGrid" class="progGrid"><div class="loading">Carregando catálogo…</div></div></section>`;
-  await loadPrograms();
+  const hasCoach = !!TSTATE.coach?.coach;
+  if (hasCoach) TSTATE.noProgramTab = TSTATE.noProgramTab || 'programas';
+  if (!TSTATE.noProgramTab) TSTATE.noProgramTab = 'personals';
+  app().innerHTML = `${noProgramBanner()}<section class="card">${noProgramTabs()}<div id="noProgramPanel">${TSTATE.noProgramTab === 'programas' ? programChooserPanel() : personalFinderPanel()}</div></section>`;
+  if (TSTATE.noProgramTab === 'programas') await loadPrograms();
+  else await loadPersonals();
 }
 
-function chooserBanner(){
-  return `<section class="banner"><h2>Você ainda não tem um programa ativo.</h2><p>Escolha um programa para começar:</p></section>`;
+function noProgramBanner(){
+  const coach = TSTATE.coach?.coach;
+  if (coach) {
+    return `<section class="banner"><h2>Seu personal: ${escapeHtml(coach.name)}</h2><p>Aguardando seu personal atribuir um programa, ou escolha um você mesmo:</p></section>`;
+  }
+  return `<section class="banner"><h2>Você ainda não tem um programa ativo.</h2><p>Encontre um personal ou escolha um programa para começar.</p></section>`;
 }
+
+function noProgramTabs(){
+  const tabs = [['personals','Encontrar personal'],['programas','Escolher programa']];
+  return `<div class="tabBar" role="tablist">${tabs.map(([id,label]) => `<button class="tabBtn ${TSTATE.noProgramTab === id ? 'on' : ''}" data-tab="${id}" type="button" role="tab" aria-selected="${TSTATE.noProgramTab === id}">${label}</button>`).join('')}</div>`;
+}
+
+function personalFinderPanel(){
+  const goal = TSTATE.user?.goal || '';
+  return `<div class="tabPanel">
+    <p class="small" style="color:var(--mut);margin-top:0">Recomendado: encontre um personal alinhado ao seu objetivo. Ele vai atribuir o programa ideal e acompanhar sua evolução.</p>
+    ${goal ? `<p class="small"><b>Buscando personals para:</b> ${escapeHtml(goal)}</p>` : ''}
+    <div id="personalGrid" class="personalGrid"><div class="loading">Carregando personals…</div></div>
+  </div>`;
+}
+
+function programChooserPanel(){
+  const hint = TSTATE.coach?.coach
+    ? 'Você já tem personal. Você também pode iniciar um programa agora enquanto aguarda a recomendação.'
+    : 'Sem personal ainda? Recomendamos voltar à aba "Encontrar personal" antes de começar.';
+  return `<div class="tabPanel">
+    <p class="small" style="color:var(--mut);margin-top:0">${escapeHtml(hint)}</p>
+    <h2>Escolher programa</h2>${filterBar()}<div id="programGrid" class="progGrid"><div class="loading">Carregando catálogo…</div></div>
+  </div>`;
+}
+
 function filterBar(){
   const chips = [['iniciante','Iniciante'],['intermediario','Intermediário'],['avancado','Avançado'],['','Todos']];
   return `<div class="filterBar" id="filterBar">${chips.map(([v,label]) => `<button class="filterChip ${TSTATE.filter === v ? 'on' : ''}" data-filter="${v}">${label}</button>`).join('')}</div>`;
@@ -204,6 +239,48 @@ function renderProgramChoice(p){
   </article>`;
 }
 
+async function loadPersonals(){
+  const grid = document.getElementById('personalGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="loading">Carregando personals…</div>';
+  try {
+    const goal = TSTATE.user?.goal || '';
+    const qs = goal ? `?objetivo=${encodeURIComponent(goal)}` : '';
+    TSTATE.personals = await apiRaw('GET', `/api/treinos/personals${qs}`);
+    grid.innerHTML = TSTATE.personals.length ? TSTATE.personals.map(renderPersonalChoice).join('') : '<div class="empty"><p>Nenhum personal disponível agora.</p></div>';
+  } catch (e) {
+    grid.innerHTML = `<div class="empty" style="color:var(--err)"><p>${escapeHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderPersonalChoice(p){
+  const active = Number(p.alunos_ativos || 0);
+  return `<article class="personalCard">
+    <div class="personalAvatar">${p.avatar_url ? `<img src="${escapeHtml(p.avatar_url)}" alt="">` : escapeHtml(String(p.name || '?').trim().charAt(0) || '?')}</div>
+    <div class="personalInfo">
+      <h3>${escapeHtml(p.name)}</h3>
+      <p>${escapeHtml(p.goal || 'Especialização não informada')}</p>
+      <div class="programMeta"><span class="statusTag">Alunos ativos: ${active}</span>${p.score != null ? `<span class="statusTag finished">match ${p.score}</span>` : ''}</div>
+      <button class="btn full requestCoach" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}">Solicitar acompanhamento</button>
+    </div>
+  </article>`;
+}
+
+async function requestCoach(coachId, coachName, btn){
+  if (!coachId) return;
+  const oldText = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Solicitando…'; }
+  try {
+    const data = await api('POST','/api/treinos/me/coach', { coach_user_id: coachId });
+    toast(`Personal ${data.coach?.name || coachName || ''} atribuído!`);
+    TSTATE.noProgramTab = 'programas';
+    await loadDashboard();
+  } catch (e) {
+    toast('Erro: ' + e.message, true);
+    if (btn) { btn.disabled = false; btn.textContent = oldText; }
+  }
+}
+
 async function assignProgram(programId, btn){
   if (!programId) return;
   const oldText = btn?.textContent;
@@ -224,6 +301,17 @@ document.addEventListener('click', (ev) => {
     TSTATE.filter = filter.dataset.filter || '';
     document.querySelectorAll('.filterChip').forEach(b => b.classList.toggle('on', b === filter));
     loadPrograms();
+    return;
+  }
+  const tab = ev.target.closest('.tabBtn');
+  if (tab) {
+    TSTATE.noProgramTab = tab.dataset.tab || 'personals';
+    renderChooserOnly();
+    return;
+  }
+  const request = ev.target.closest('.requestCoach');
+  if (request) {
+    requestCoach(request.dataset.id, request.dataset.name, request);
     return;
   }
   const assign = ev.target.closest('.assignProgram');

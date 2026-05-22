@@ -1117,3 +1117,156 @@ programasRouter.get('/coach/me/dashboard', async (req, res, next) => {
     res.json(data);
   } catch (e) { next(e); }
 });
+
+// =============================================================================
+// PERSONAL DISCOVERY — experiência do aluno sem programa (Sub-fase F)
+// =============================================================================
+
+const personalMatchStrongTokens = new Set(['forca','hipertrofia','cross','funcional','corrida','resistencia','recomposicao','perda']);
+
+function tokenizePersonalMatchText(value: unknown): Set<string> {
+  return new Set(String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean));
+}
+
+function scorePersonalGoal(objetivo: string, goal: string | null): number {
+  const objetivoTokens = tokenizePersonalMatchText(objetivo);
+  const goalTokens = tokenizePersonalMatchText(goal);
+  let score = 0;
+  for (const token of objetivoTokens) {
+    if (!goalTokens.has(token)) continue;
+    score += 1;
+    if (personalMatchStrongTokens.has(token)) score += 2;
+  }
+  return score;
+}
+
+const createMeCoachSchema = z.object({
+  coach_user_id: uuid,
+  observacoes: z.string().max(1000).optional().nullable(),
+});
+
+programasRouter.get('/personals', async (req, res, next) => {
+  try {
+    const objetivo = typeof req.query.objetivo === 'string' ? req.query.objetivo.trim() : '';
+    const rows = await withClient(async c => (await c.query(
+      `SELECT u.id, u.name, u.goal, u.avatar_url, u.height_cm,
+              COALESCE(a.alunos_ativos, 0)::int AS alunos_ativos,
+              COALESCE(s.sessoes_alunos_7d, 0)::int AS sessoes_alunos_7d
+         FROM app.user u
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS alunos_ativos
+             FROM treinos.coach_assignment ca
+            WHERE ca.coach_user_id = u.id AND ca.status = 'ativo'
+         ) a ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS sessoes_alunos_7d
+             FROM treinos.coach_assignment ca
+             JOIN treinos.workout_session ws ON ws.user_id = ca.aluno_user_id
+            WHERE ca.coach_user_id = u.id
+              AND ca.status = 'ativo'
+              AND ws.started_at >= now() - interval '7 days'
+         ) s ON TRUE
+        WHERE u.active = TRUE AND u.role = 'personal'`
+    )).rows);
+
+    const data = rows.map(row => {
+      const base = {
+        id: row.id,
+        name: row.name,
+        goal: row.goal,
+        avatar_url: row.avatar_url,
+        height_cm: row.height_cm,
+        alunos_ativos: row.alunos_ativos,
+        sessoes_alunos_7d: row.sessoes_alunos_7d,
+      };
+      return objetivo ? { ...base, score: scorePersonalGoal(objetivo, row.goal) } : base;
+    });
+
+    data.sort((a: any, b: any) => {
+      if (objetivo && b.score !== a.score) return b.score - a.score;
+      if (a.alunos_ativos !== b.alunos_ativos) return a.alunos_ativos - b.alunos_ativos;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+    });
+
+    res.json(data);
+  } catch (e) { next(e); }
+});
+
+programasRouter.post('/me/coach', validate(createMeCoachSchema), async (req, res, next) => {
+  try {
+    const alunoUid = requireUid(req, res); if (!alunoUid) return;
+    const { coach_user_id, observacoes } = req.body as z.infer<typeof createMeCoachSchema>;
+    if (coach_user_id === alunoUid) return res.status(400).json({ error: 'coach cannot be aluno' });
+
+    const data = await withClient(async c => {
+      const personal = (await c.query(
+        `SELECT id, name, goal, avatar_url
+           FROM app.user
+          WHERE id=$1 AND role='personal' AND active = TRUE`,
+        [coach_user_id]
+      )).rows[0];
+      if (!personal) return { kind: 'not_found' as const };
+
+      const current = (await c.query(
+        `SELECT id FROM treinos.coach_assignment
+          WHERE aluno_user_id=$1 AND status='ativo'
+          LIMIT 1`,
+        [alunoUid]
+      )).rows[0];
+      if (current) return { kind: 'conflict' as const };
+
+      const assignment = (await c.query(
+        `INSERT INTO treinos.coach_assignment (coach_user_id, aluno_user_id, status, observacoes)
+         VALUES ($1,$2,'ativo',$3)
+         RETURNING id, coach_user_id, aluno_user_id, status, started_on, ended_on, observacoes, created_at, updated_at`,
+        [coach_user_id, alunoUid, observacoes ?? null]
+      )).rows[0];
+
+      return { kind: 'created' as const, assignment, coach: personal };
+    });
+
+    if (data.kind === 'not_found') return res.status(404).json({ error: 'personal not found' });
+    if (data.kind === 'conflict') return res.status(409).json({ error: 'aluno already has active coach' });
+    res.status(201).json({ assignment: data.assignment, coach: data.coach });
+  } catch (e) { next(e); }
+});
+
+programasRouter.get('/me/coach', async (req, res, next) => {
+  try {
+    const alunoUid = requireUid(req, res); if (!alunoUid) return;
+    const row = await withClient(async c => (await c.query(
+      `SELECT ca.id, ca.status, ca.started_on, ca.observacoes,
+              u.id AS coach_id, u.name AS coach_name, u.goal AS coach_goal, u.avatar_url AS coach_avatar_url
+         FROM treinos.coach_assignment ca
+         JOIN app.user u ON u.id = ca.coach_user_id
+        WHERE ca.aluno_user_id=$1 AND ca.status='ativo'
+        ORDER BY ca.started_on DESC, ca.id DESC
+        LIMIT 1`,
+      [alunoUid]
+    )).rows[0]);
+
+    if (!row) return res.json({ coach: null, assignment: null });
+    res.json({
+      coach: { id: row.coach_id, name: row.coach_name, goal: row.coach_goal, avatar_url: row.coach_avatar_url },
+      assignment: { id: row.id, status: row.status, started_on: row.started_on, observacoes: row.observacoes },
+    });
+  } catch (e) { next(e); }
+});
+
+programasRouter.delete('/me/coach', async (req, res, next) => {
+  try {
+    const alunoUid = requireUid(req, res); if (!alunoUid) return;
+    await withClient(async c => { await c.query(
+      `UPDATE treinos.coach_assignment
+          SET status='encerrado', ended_on=CURRENT_DATE, updated_at=now()
+        WHERE aluno_user_id=$1 AND status='ativo'`,
+      [alunoUid]
+    ); });
+    res.status(204).end();
+  } catch (e) { next(e); }
+});
