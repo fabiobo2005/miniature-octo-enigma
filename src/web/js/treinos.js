@@ -13,9 +13,15 @@ function nivelLabel(n){ return NIVEL_LABEL[n] || n || '—'; }
 function pct(n){ const v = Number(n || 0); return Math.max(0, Math.min(100, Number.isFinite(v) ? v : 0)); }
 function fmtLongDate(v){ if(!v) return '—'; return new Date(v).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}); }
 function statusLabel(s){ return ({in_progress:'em andamento', finished:'finalizado', concluido:'concluído', aborted:'abandonado'}[s] || s || '—'); }
-function coachRoleText(coach){
-  const parts = [coach.role === 'personal' ? 'Personal' : coach.role, coach.goal].filter(Boolean);
-  return parts.length ? ` (${escapeHtml(parts.join(' - '))})` : '';
+function coachInitials(name){
+  const parts = String(name || 'Personal').trim().split(/\s+/).filter(Boolean);
+  const initials = (parts.length > 1 ? [parts[0], parts[parts.length - 1]] : [parts[0] || 'P'])
+    .map(p => p.charAt(0).toUpperCase()).join('');
+  return initials || 'P';
+}
+function coachSpecialtyText(coach){
+  const role = coach?.role === 'personal' ? 'Personal' : (coach?.role || 'Personal');
+  return [role, coach?.goal].filter(Boolean).join(' - ');
 }
 function sessionTime(s){ return s.finished_at || s.started_at || s.data; }
 function app(){ return document.getElementById('treinosApp'); }
@@ -66,7 +72,8 @@ function renderActive(){
   const lastFive = TSTATE.sessions.slice(0,5);
   const coach = atual.coach;
   app().innerHTML = `
-    ${programCard(program, currentWeek, days, percent, coach)}
+    ${programCard(program, currentWeek, days, percent)}
+    ${coachPanel(coach)}
     ${nextWorkoutCard(next, TSTATE.proximo.status)}
     <div class="card">
       <h2>Últimas sessões <span class="sub">${lastFive.length} de ${TSTATE.sessions.length}</span></h2>
@@ -79,7 +86,7 @@ function renderActive(){
     <section id="chooserMount" hidden></section>`;
 }
 
-function programCard(program, currentWeek, days, percent, coach){
+function programCard(program, currentWeek, days, percent){
   return `<section class="programHero">
     <div class="heroContent">
       <div class="heroTop">
@@ -93,8 +100,26 @@ function programCard(program, currentWeek, days, percent, coach){
         <span class="nivelTag ${escapeHtml(program.nivel || '')}">${escapeHtml(nivelLabel(program.nivel))}</span>
       </div>
       <div class="progressTrack" aria-label="Progresso do programa"><div class="progressFill" style="width:${percent}%"></div></div>
-      ${coach ? `<div class="coachLine">Personal: <b>${escapeHtml(coach.name)}</b>${coachRoleText(coach)}</div>` : ''}
       <div class="programActions"><button class="subtleLink" id="toggleChooser" type="button">Trocar programa</button></div>
+    </div>
+  </section>`;
+}
+
+function coachPanel(coach){
+  if (!coach) {
+    return `<div class="noCoachNote">💡 Você ainda não tem um personal atribuído. <a href="/treinos.html">Encontrar personal</a></div>`;
+  }
+  const name = coach.name || 'Seu personal';
+  const avatar = coach.avatar_url
+    ? `<img src="${escapeHtml(coach.avatar_url)}" alt="${escapeHtml(name)}">`
+    : escapeHtml(coachInitials(name));
+  return `<section class="coach-card" aria-label="Seu personal">
+    <div class="coach-avatar">${avatar}</div>
+    <div>
+      <p class="coach-label">Seu personal</p>
+      <h3>${escapeHtml(name)}</h3>
+      <p class="coach-specialty">${escapeHtml(coachSpecialtyText(coach))}</p>
+      <button class="coach-message-btn" type="button" disabled title="Em breve — chat com seu personal">Enviar mensagem</button>
     </div>
   </section>`;
 }
