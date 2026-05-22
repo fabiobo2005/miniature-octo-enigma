@@ -489,3 +489,45 @@ BEGIN
     INSERT INTO app.schema_migrations(version) VALUES ('v10-program-assignment-source');
   END IF;
 END $mig10$;
+
+-- ============================================================================
+-- MIGRATION v14-subfase-h-program-assignment-source
+-- Alinha program_assignment com a Sub-fase H: encerramento por coach e origem.
+-- ============================================================================
+DO $mig14$
+DECLARE
+  constraint_name text;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='v14-subfase-h-program-assignment-source') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema='treinos' AND table_name='program_assignment' AND column_name='source'
+    ) THEN
+      ALTER TABLE treinos.program_assignment
+        ADD COLUMN source TEXT NOT NULL DEFAULT 'self';
+    END IF;
+
+    SELECT conname INTO constraint_name
+      FROM pg_constraint
+     WHERE conrelid = 'treinos.program_assignment'::regclass
+       AND contype = 'c'
+       AND pg_get_constraintdef(oid) LIKE '%status%'
+     LIMIT 1;
+
+    IF constraint_name IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE treinos.program_assignment DROP CONSTRAINT %I', constraint_name);
+    END IF;
+
+    ALTER TABLE treinos.program_assignment
+      ADD CONSTRAINT program_assignment_status_check
+      CHECK (status IN ('ativo','concluido','cancelado','pausado','encerrado'));
+
+    ALTER TABLE treinos.program_assignment
+      DROP CONSTRAINT IF EXISTS program_assignment_source_check;
+    ALTER TABLE treinos.program_assignment
+      ADD CONSTRAINT program_assignment_source_check
+      CHECK (source IN ('self','coach'));
+
+    INSERT INTO app.schema_migrations(version) VALUES ('v14-subfase-h-program-assignment-source');
+  END IF;
+END $mig14$;

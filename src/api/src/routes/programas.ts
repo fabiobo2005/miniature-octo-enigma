@@ -1315,3 +1315,169 @@ programasRouter.delete('/me/coach', async (req, res, next) => {
     res.status(204).end();
   } catch (e) { next(e); }
 });
+
+// === SUB-FASE H ===
+
+const subFaseHNiveis = ['iniciante', 'intermediario', 'avancado'] as const;
+const createCoachProgramSchema = z.object({
+  nivel: z.enum(subFaseHNiveis),
+  nome: z.string().max(120).optional().nullable(),
+  objetivo: z.string().max(2000).optional().nullable(),
+  duracao_semanas: z.number().int().min(1).max(52),
+});
+
+const assignCoachProgramSchema = z.object({
+  programa_id: positiveInt,
+});
+
+const subFaseHCategoria: Record<typeof subFaseHNiveis[number], string> = {
+  iniciante: 'Iniciante',
+  intermediario: 'Intermediário',
+  avancado: 'Avançado',
+};
+
+function toRoman(n: number): string {
+  const parts: Array<[number, string]> = [
+    [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'],
+    [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let rest = n;
+  let out = '';
+  for (const [value, symbol] of parts) {
+    while (rest >= value) { out += symbol; rest -= value; }
+  }
+  return out;
+}
+
+async function assertPersonalUser(c: PoolClient, userId: string): Promise<boolean> {
+  const row = (await c.query(
+    `SELECT 1 FROM app.user WHERE id=$1 AND role='personal' AND active = TRUE LIMIT 1`,
+    [userId]
+  )).rows[0];
+  return !!row;
+}
+
+async function nextCoachProgramName(c: PoolClient, nivel: typeof subFaseHNiveis[number]): Promise<string> {
+  const categoria = subFaseHCategoria[nivel];
+  const count = Number((await c.query(
+    `SELECT COUNT(*)::int AS total FROM treinos.program WHERE nivel=$1`,
+    [nivel]
+  )).rows[0]?.total || 0);
+
+  let next = count + 1;
+  while (true) {
+    const candidate = `Programa ${categoria} ${toRoman(next)}`;
+    const exists = (await c.query(`SELECT 1 FROM treinos.program WHERE nome=$1 LIMIT 1`, [candidate])).rows[0];
+    if (!exists) return candidate;
+    next += 1;
+  }
+}
+
+programasRouter.get('/coach/programas', async (req, res, next) => {
+  try {
+    const coachUid = requireUid(req, res); if (!coachUid) return;
+    const nivel = typeof req.query.nivel === 'string' ? req.query.nivel : undefined;
+    if (nivel && !subFaseHNiveis.includes(nivel as any)) return res.status(400).json({ error: 'invalid nivel' });
+
+    const rows = await withClient(async c => {
+      const isPersonal = await assertPersonalUser(c, coachUid);
+      if (!isPersonal) return null;
+      const args: any[] = [];
+      const where = ['ativo = TRUE'];
+      if (nivel) { args.push(nivel); where.push(`nivel = $${args.length}`); }
+      return (await c.query(
+        `SELECT id, nome, nivel, objetivo, duracao_semanas, ativo, autor_user_id, created_at, updated_at,
+                (SELECT COUNT(*)::int FROM treinos.workout_template wt WHERE wt.program_id = p.id) AS templates_count
+           FROM treinos.program p
+          WHERE ${where.join(' AND ')}
+          ORDER BY (nivel='iniciante') DESC, (nivel='intermediario') DESC, nome`,
+        args
+      )).rows;
+    });
+
+    if (!rows) return res.status(403).json({ error: 'personal role required' });
+    res.json(rows);
+  } catch (e) { next(e); }
+});
+
+programasRouter.post('/coach/programas', validate(createCoachProgramSchema), async (req, res, next) => {
+  try {
+    const coachUid = requireUid(req, res); if (!coachUid) return;
+    const b = req.body as z.infer<typeof createCoachProgramSchema>;
+
+    const data = await withClient(async c => {
+      const isPersonal = await assertPersonalUser(c, coachUid);
+      if (!isPersonal) return { kind: 'forbidden' as const };
+
+      const nome = (b.nome || '').trim() || await nextCoachProgramName(c, b.nivel);
+      const programa = (await c.query(
+        `INSERT INTO treinos.program (nome, nivel, objetivo, duracao_semanas, autor_user_id, ativo)
+         VALUES ($1,$2,$3,$4,$5,TRUE)
+         RETURNING id, nome, nivel, objetivo, duracao_semanas, ativo, autor_user_id, created_at, updated_at`,
+        [nome, b.nivel, (b.objetivo || '').trim() || null, b.duracao_semanas, coachUid]
+      )).rows[0];
+      return { kind: 'created' as const, programa };
+    });
+
+    if (data.kind === 'forbidden') return res.status(403).json({ error: 'personal role required' });
+    res.status(201).json(data.programa);
+  } catch (e: any) {
+    if (e?.code === '23505') return res.status(409).json({ error: 'programa nome already exists' });
+    next(e);
+  }
+});
+
+programasRouter.post('/coach/alunos/:alunoId/assign-program', validate(assignCoachProgramSchema), async (req, res, next) => {
+  try {
+    const coachUid = requireUid(req, res); if (!coachUid) return;
+    const alunoUid = String(req.params.alunoId || '');
+    const { programa_id } = req.body as z.infer<typeof assignCoachProgramSchema>;
+
+    const data = await withClient(async c => {
+      const isPersonal = await assertPersonalUser(c, coachUid);
+      if (!isPersonal) return { kind: 'forbidden' as const };
+
+      const rel = (await c.query(
+        `SELECT 1 FROM treinos.coach_assignment
+          WHERE coach_user_id=$1 AND aluno_user_id=$2 AND status='ativo'
+          LIMIT 1`,
+        [coachUid, alunoUid]
+      )).rows[0];
+      if (!rel) return { kind: 'not_coach' as const };
+
+      const program = (await c.query(
+        `SELECT id, nome, nivel, objetivo, duracao_semanas
+           FROM treinos.program
+          WHERE id=$1 AND ativo = TRUE`,
+        [programa_id]
+      )).rows[0];
+      if (!program) return { kind: 'program_not_found' as const };
+
+      await c.query('BEGIN');
+      try {
+        await c.query(
+          `UPDATE treinos.program_assignment
+              SET status='encerrado', ended_on=CURRENT_DATE, updated_at=now()
+            WHERE aluno_user_id=$1 AND status='ativo'`,
+          [alunoUid]
+        );
+        const assignment = (await c.query(
+          `INSERT INTO treinos.program_assignment (aluno_user_id, program_id, coach_user_id, status, source)
+           VALUES ($1,$2,$3,'ativo','coach')
+           RETURNING *`,
+          [alunoUid, programa_id, coachUid]
+        )).rows[0];
+        await c.query('COMMIT');
+        return { kind: 'created' as const, assignment, program };
+      } catch (e) {
+        await c.query('ROLLBACK');
+        throw e;
+      }
+    });
+
+    if (data.kind === 'forbidden') return res.status(403).json({ error: 'personal role required' });
+    if (data.kind === 'not_coach') return res.status(403).json({ error: 'not coach of aluno' });
+    if (data.kind === 'program_not_found') return res.status(404).json({ error: 'program not found or inactive' });
+    res.status(201).json({ assignment: data.assignment, program: data.program });
+  } catch (e) { next(e); }
+});
