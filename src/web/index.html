@@ -10,148 +10,42 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="stylesheet" href="/css/app.css">
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
 <style>
-  .userGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:14px}
-  .userCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:18px 12px;
-    text-align:center;cursor:pointer;transition:.2s;box-shadow:var(--shadow-l);display:flex;flex-direction:column;align-items:center;gap:8px}
-  .userCard:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--pri)}
-  .userCard .av{width:56px;height:56px;border-radius:50%;background:var(--grad);color:#fff;
-    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;background-size:cover;background-position:center}
-  .userCard b{font-size:15px;line-height:1.2}
-  .userCard span{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
-  .userCard.addNew{border-style:dashed;color:var(--pri-d);background:var(--pri-bg);justify-content:center;min-height:120px}
-  .userCard.addNew .av{background:transparent;color:var(--pri-d);font-size:32px}
-  .pickerHero{background:var(--grad-soft);border-radius:24px;padding:24px;margin-bottom:14px;border:1px solid var(--line);text-align:center}
-  .pickerHero h1{margin:0 0 6px;font-size:24px;letter-spacing:-.5px}
-  .pickerHero p{margin:0;color:var(--mut);font-size:14px}
-  .userBadge{display:inline-flex;align-items:center;gap:8px;background:var(--surf);border:1px solid var(--line);
-    border-radius:99px;padding:4px 10px 4px 4px;font-size:13px;cursor:pointer}
-  .userBadge .mini{width:26px;height:26px;border-radius:50%;background:var(--grad);color:#fff;
-    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;background-size:cover;background-position:center}
-  .userBadge:hover{border-color:var(--pri)}
+  .authSplash{min-height:80vh;display:grid;place-items:center;text-align:center;padding:24px}
+  .spinner{width:44px;height:44px;border:4px solid var(--line);border-top-color:var(--pri);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+  .authSplash h1{margin:0 0 6px;font-size:24px;letter-spacing:-.5px}
+  .authSplash p{margin:0;color:var(--mut)}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-
-<div class="app" id="appRoot">
-
-  <!-- ====== USER PICKER (sem usuário selecionado) ====== -->
-  <section id="viewPicker" hidden>
-    <div class="pickerHero">
-      <h1>👋 Bem-vindo ao APEX</h1>
-      <p>Escolha seu perfil para continuar ou cadastre um novo.</p>
-    </div>
-
-    <div class="card">
-      <h2>👥 Perfis</h2>
-      <div id="userGrid" class="userGrid">
-        <div style="grid-column:1/-1;text-align:center;color:var(--mut);padding:20px">Carregando…</div>
-      </div>
-    </div>
+<div class="app authSplash">
+  <section>
+    <div class="spinner" aria-hidden="true"></div>
+    <h1>Entrando no APEX…</h1>
+    <p>Aguarde enquanto validamos sua conta.</p>
   </section>
-
-  <!-- ====== HUB (com usuário selecionado) ====== -->
-  <section id="viewHub" hidden>
-    <div class="topbar">
-      <div class="topRow">
-        <div class="avatar"><span id="avInit">?</span></div>
-        <div class="greet">
-          <p class="hi" id="greet">Bom dia</p>
-          <p class="nm" id="userChip">—</p>
-        </div>
-        <button class="iconBtn" onclick="logoutUser()" title="Trocar usuário" aria-label="Trocar usuário">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
-        </button>
-        <button class="iconBtn" onclick="toggleTheme()" title="Tema">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="hubHero">
-      <p class="lbl">APEX · 90 dias</p>
-      <h1 class="hubTitle">O que você vai cuidar agora?</h1>
-    </div>
-
-    <div class="hubGrid">
-      <a class="hubCard saude" href="/saude.html">
-        <div class="hubIco">❤️</div>
-        <div class="hubBody">
-          <h2>Saúde</h2>
-          <p class="kpi"><b id="hubSaudePeso">—</b> kg · <b id="hubSaudeSupps">0</b> supl. hoje</p>
-          <span class="hubSub">Peso, medições, suplementos →</span>
-        </div>
-      </a>
-
-      <a class="hubCard dieta" href="/dieta.html">
-        <div class="hubIco">🍽️</div>
-        <div class="hubBody">
-          <h2>Dieta</h2>
-          <p class="kpi"><b id="hubDietaPct">0%</b> hoje · <b id="hubDietaStreak">0d</b> sequência</p>
-          <span class="hubSub">6 refeições, plano e disciplina →</span>
-        </div>
-      </a>
-
-      <a class="hubCard treinos" href="/treinos.html">
-        <div class="hubIco">💪</div>
-        <div class="hubBody">
-          <h2>Treinos</h2>
-          <p class="kpi"><b id="hubTreinosSessions">0</b> esta semana · <b id="hubTreinosMin">0</b>min</p>
-          <span class="hubSub">Programa, próximo treino e histórico →</span>
-        </div>
-      </a>
-    </div>
-
-    <p class="small" style="text-align:center;margin-top:24px">v8.0 · <a href="/db.html">🗄️ Inspector</a></p>
-  </section>
-
 </div>
-
-<!-- ====== Modal: Cadastrar / Editar usuário ====== -->
-<div class="scrim" id="scrim" onclick="closeUserModal()"></div>
-<div class="modal" id="userModal">
-  <div class="modalH">
-    <b id="userModalTitle">Novo perfil</b>
-    <button class="x" onclick="closeUserModal()">×</button>
-  </div>
-  <input type="hidden" id="uId">
-  <div class="field"><label>Nome <span style="color:var(--err)">*</span></label><input type="text" id="uName" placeholder="Ex: Fábio" required></div>
-  <div class="field"><label>E-mail (opcional)</label><input type="email" id="uEmail" placeholder="seu@email.com"></div>
-  <div class="row2">
-    <div class="field"><label>Nascimento</label><input type="date" id="uBirth"></div>
-    <div class="field"><label>Altura (cm)</label><input type="number" id="uHeight" placeholder="175"></div>
-  </div>
-  <div class="field"><label>Objetivo</label><input type="text" id="uGoal" placeholder="Ex: recomposição 90d, ganho de massa…"></div>
-  <p class="small" style="color:var(--mut);margin:4px 0 12px">📌 No futuro este cadastro virará registro com senha. Por ora é só um perfil local.</p>
-  <button class="btn full" onclick="saveUser()">Salvar perfil</button>
-</div>
-
-<div class="toast" id="toast"></div>
-
+<script src="/js/auth.js"></script>
 <script src="/js/core.js"></script>
-<script src="/js/launcher.js"></script>
 <script>
-(function(){
-  async function redirectPersonal(){
-    const stored = USER.get();
-    const id = (stored && stored.id) || localStorage.getItem('userId');
-    if (!id) return;
-    try {
-      const u = await apiRaw('GET', '/api/users/' + encodeURIComponent(id));
-      if (u && u.role === 'personal') window.location.href = '/personal.html';
-    } catch (e) { console.warn('role redirect failed', e); }
-  }
-  document.addEventListener('DOMContentLoaded', redirectPersonal);
-  if (typeof window.pickUser === 'function' && !window.pickUser.__personalRedirectWrapped) {
-    const originalPickUser = window.pickUser;
-    window.pickUser = function(id, name, avatarUrl){
-      originalPickUser(id, name, avatarUrl);
-      redirectPersonal();
-    };
-    window.pickUser.__personalRedirectWrapped = true;
-  }
-})();
+apexAuth.initializeMsal().then(() => msalInstance.handleRedirectPromise()).then(async () => {
+  const acc = msalInstance.getAllAccounts()[0];
+  if (!acc) { return ensureLogin(); }
+  msalInstance.setActiveAccount(acc);
+  const me = await fetch('/api/admin/me').then(r=>r.json());
+  if (me?.id) USER.set(me);
+  if (me.status === 'pending') { location.href = '/pending.html'; return; }
+  if (me.status === 'disabled') { alert('Conta desabilitada'); await logout(); return; }
+  if (me.role === 'admin') { location.href = '/admin.html'; return; }
+  if (me.role === 'personal') { location.href = '/personal.html'; return; }
+  location.href = '/treinos.html';
+}).catch(err => {
+  console.error('auth bootstrap failed', err);
+  alert('Não foi possível validar seu login. Tente novamente.');
+});
 </script>
 </body>
 </html>

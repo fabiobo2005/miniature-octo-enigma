@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<title>APEX · Conta em análise</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<style>
+  .pendingBox{min-height:70vh;display:grid;place-items:center;text-align:center}
+  .pendingCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:28px;max-width:460px}
+  .pendingCard h1{margin:0 0 10px;font-size:26px;letter-spacing:-.5px}
+  .pendingCard p{margin:0 0 18px;color:var(--mut);font-size:15px}
+</style>
+</head>
+<body>
+<div class="app pendingBox">
+  <section class="pendingCard">
+    <h1>Conta em análise</h1>
+    <p>Sua conta está em análise. Aguarde aprovação do administrador.</p>
+    <button class="btn" type="button" onclick="logout()">Sair</button>
+  </section>
+</div>
+<script src="/js/auth.js"></script>
+</body>
+</html>
