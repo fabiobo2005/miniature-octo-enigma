@@ -314,45 +314,50 @@ async function main(): Promise<void> {
     0
   );
 
-  const summary = await withClient(async (c) => {
-    await c.query('BEGIN');
-    try {
-      const assigned = await assignNames(c, data.programas);
-      const results: Array<{ nome: string; status: 'inserted' | 'skipped' | 'reinserted'; templates: number; prescriptions: number }> = [];
-      let rowsImported = 0;
+  const summary = await (async () => {
+    // PRE: atribuir nomes com 1 conexão curta
+    const assigned = await withClient(async (c) => assignNames(c, data.programas));
+    const cols = await withClient(async (c) => importRunColumns(c));
+    const results: Array<{ nome: string; status: 'inserted' | 'skipped' | 'reinserted'; templates: number; prescriptions: number }> = [];
+    let rowsImported = 0;
 
-      for (let i = 0; i < data.programas.length; i += 1) {
-        const programa = data.programas[i];
-        const decision = assigned.get(i);
-        if (!decision) throw new Error(`Falha ao atribuir nome ao programa ${i + 1}.`);
-
-        const duplicate = await c.query(`SELECT id FROM treinos.program WHERE nome = $1 LIMIT 1`, [decision.nome]);
-        const duplicateId = duplicate.rows[0]?.id as number | undefined;
-        if (duplicateId && !args.force) {
-          console.log(`[skip] ${decision.nome} já existe. Use --force para reimportar.`);
-          results.push({ nome: decision.nome, status: 'skipped', templates: 0, prescriptions: 0 });
-          continue;
+    // Persist 1 programa por transação (cada um pega uma conexão fresca)
+    for (let i = 0; i < data.programas.length; i += 1) {
+      const programa = data.programas[i];
+      const decision = assigned.get(i);
+      if (!decision) throw new Error(`Falha ao atribuir nome ao programa ${i + 1}.`);
+      console.log(`[start] ${decision.nome}…`);
+      const r = await withClient(async (c) => {
+        await c.query('BEGIN');
+        try {
+          const duplicate = await c.query(`SELECT id FROM treinos.program WHERE nome = $1 LIMIT 1`, [decision.nome]);
+          const duplicateId = duplicate.rows[0]?.id as number | undefined;
+          if (duplicateId && !args.force) {
+            await c.query('COMMIT');
+            console.log(`[skip] ${decision.nome} já existe. Use --force para reimportar.`);
+            return { nome: decision.nome, status: 'skipped' as const, templates: 0, prescriptions: 0 };
+          }
+          if (duplicateId && args.force) {
+            await c.query(`DELETE FROM treinos.program WHERE id = $1`, [duplicateId]);
+          } else if (decision.existingId && args.force) {
+            await c.query(`DELETE FROM treinos.program WHERE id = $1`, [decision.existingId]);
+          }
+          const inserted = await insertProgram(c, programa, decision.nome, decision.sha);
+          await c.query('COMMIT');
+          console.log(`[ok] ${decision.nome}: ${inserted.templates} templates, ${inserted.prescriptions} prescrições.`);
+          return { nome: decision.nome, status: (duplicateId && args.force ? 'reinserted' : 'inserted') as 'reinserted' | 'inserted', templates: inserted.templates, prescriptions: inserted.prescriptions };
+        } catch (error) {
+          await c.query('ROLLBACK');
+          throw error;
         }
-        if (duplicateId && args.force) {
-          await c.query(`DELETE FROM treinos.program WHERE id = $1`, [duplicateId]);
-        } else if (decision.existingId && args.force) {
-          await c.query(`DELETE FROM treinos.program WHERE id = $1`, [decision.existingId]);
-        }
-
-        const inserted = await insertProgram(c, programa, decision.nome, decision.sha);
-        rowsImported += inserted.prescriptions;
-        results.push({ nome: decision.nome, status: duplicateId && args.force ? 'reinserted' : 'inserted', templates: inserted.templates, prescriptions: inserted.prescriptions });
-        console.log(`[ok] ${decision.nome}: ${inserted.templates} templates, ${inserted.prescriptions} prescrições.`);
-      }
-
-      await createImportRun(c, await importRunColumns(c), rowsRead, rowsImported, { tipo: 'seed-json', results }, sha256(raw));
-      await c.query('COMMIT');
-      return { results, rowsRead, rowsImported };
-    } catch (error) {
-      await c.query('ROLLBACK');
-      throw error;
+      });
+      results.push(r);
+      rowsImported += r.prescriptions;
     }
-  });
+
+    await withClient(async (c) => createImportRun(c, cols, rowsRead, rowsImported, { tipo: 'seed-json', results }, sha256(raw)));
+    return { results, rowsRead, rowsImported };
+  })();
 
   console.log(`\nSeed ${basename(seedPath)} concluído: ${summary.rowsImported}/${summary.rowsRead} prescrições importadas.`);
 }
