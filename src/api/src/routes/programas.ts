@@ -439,6 +439,7 @@ function shapeAssignment(row: any): any {
     aluno_user_id: row.aluno_user_id,
     program_id: row.program_id,
     coach_user_id: row.coach_user_id,
+    source: row.source,
     started_on: row.started_on,
     ended_on: row.ended_on,
     status: row.status,
@@ -446,6 +447,18 @@ function shapeAssignment(row: any): any {
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+async function hasProgramAssignmentSource(c: PoolClient): Promise<boolean> {
+  const row = (await c.query(
+    `SELECT 1
+       FROM information_schema.columns
+      WHERE table_schema='treinos'
+        AND table_name='program_assignment'
+        AND column_name='source'
+      LIMIT 1`
+  )).rows[0];
+  return !!row;
 }
 
 programasRouter.post('/me/assignments', validate(createProgramAssignSchema), async (req, res, next) => {
@@ -458,28 +471,28 @@ programasRouter.post('/me/assignments', validate(createProgramAssignSchema), asy
         [b.program_id]
       )).rows[0];
       if (!program) return null;
-      const coachUserId = b.coach_user_id ?? (await c.query(
-        `SELECT coach_user_id
-           FROM treinos.coach_assignment
-          WHERE aluno_user_id=$1 AND status='ativo'
-          ORDER BY started_on DESC, id DESC
-          LIMIT 1`,
-        [u]
-      )).rows[0]?.coach_user_id ?? null;
+      const coachUserId = b.coach_user_id ?? null;
+      const source = b.coach_user_id ? 'coach' : 'self';
+      const hasSource = await hasProgramAssignmentSource(c);
       await c.query('BEGIN');
       try {
         await c.query(
           `UPDATE treinos.program_assignment
-              SET status='concluido', ended_on=CURRENT_DATE, updated_at=now()
+              SET status='encerrado', ended_on=CURRENT_DATE, updated_at=now()
             WHERE aluno_user_id=$1 AND status='ativo'`,
           [u]
         );
         const assignment = (await c.query(
-          `INSERT INTO treinos.program_assignment
-             (aluno_user_id, program_id, coach_user_id, status)
-           VALUES ($1,$2,$3,'ativo')
-           RETURNING *`,
-          [u, b.program_id, coachUserId]
+          hasSource
+            ? `INSERT INTO treinos.program_assignment
+                 (aluno_user_id, program_id, coach_user_id, source, status)
+               VALUES ($1,$2,$3,$4,'ativo')
+               RETURNING *`
+            : `INSERT INTO treinos.program_assignment
+                 (aluno_user_id, program_id, coach_user_id, status)
+               VALUES ($1,$2,$3,'ativo')
+               RETURNING *`,
+          hasSource ? [u, b.program_id, coachUserId, source] : [u, b.program_id, coachUserId]
         )).rows[0];
         await c.query('COMMIT');
         return { assignment, program };
@@ -490,6 +503,38 @@ programasRouter.post('/me/assignments', validate(createProgramAssignSchema), asy
     });
     if (!data) return res.status(404).json({ error: 'program not found or inactive' });
     res.status(201).json(data);
+  } catch (e) { next(e); }
+});
+
+programasRouter.get('/me/assignment-ativo', async (req, res, next) => {
+  try {
+    const u = requireUid(req, res); if (!u) return;
+    const row = await withClient(async c => {
+      const hasSource = await hasProgramAssignmentSource(c);
+      return (await c.query(
+        `SELECT pa.*, ${hasSource ? 'pa.source' : "'self'::text AS source"},
+                p.nome AS program_nome, p.nivel AS program_nivel, p.objetivo AS program_objetivo,
+                p.duracao_semanas, p.ativo AS program_ativo
+           FROM treinos.program_assignment pa
+           JOIN treinos.program p ON p.id = pa.program_id
+          WHERE pa.aluno_user_id=$1 AND pa.status='ativo'
+          ORDER BY pa.started_on DESC, pa.id DESC
+          LIMIT 1`,
+        [u]
+      )).rows[0];
+    });
+    if (!row) return res.json({ assignment: null, program: null });
+    res.json({
+      assignment: shapeAssignment(row),
+      program: {
+        id: row.program_id,
+        nome: row.program_nome,
+        nivel: row.program_nivel,
+        objetivo: row.program_objetivo,
+        duracao_semanas: row.duracao_semanas,
+        ativo: row.program_ativo,
+      },
+    });
   } catch (e) { next(e); }
 });
 
