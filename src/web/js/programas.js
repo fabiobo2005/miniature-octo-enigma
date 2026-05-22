@@ -17,7 +17,8 @@ const STATE = {
   currentSessionId: null,
   currentTemplate: null,
   currentProgram: null,
-  timer: { remaining:0, running:false, intervalId:null, defaultSec:60 },
+  totalTimer: { startedAt:null, intervalId:null },
+  restTimer: { execId:null, remaining:0, intervalId:null, defaultSec:60 },
   saveDebouncers: new Map(),
 };
 
@@ -31,7 +32,8 @@ function route(){
   const m1 = h.match(/^\/programa\/(\d+)$/);
   const m2 = h.match(/^\/treino\/(\d+)(?:\?semana=(\d+))?$/);
   const m3 = h.match(/^\/sessao\/(\d+)$/);
-  closeTimer();
+  stopTotalTimer();
+  stopRestTimer();
   if (m1)      renderProgram(Number(m1[1]));
   else if (m2) startOrShowSession({templateId:Number(m2[1]), semana:m2[2]?Number(m2[2]):null});
   else if (m3) showSession(Number(m3[1]));
@@ -147,35 +149,113 @@ async function startOrShowSession({templateId, semana}){
 async function showSession(sessionId){
   show('exec');
   STATE.currentSessionId = sessionId;
+  stopTotalTimer();
+  stopRestTimer();
+  document.getElementById('totalTimerBar').hidden = true;
+  document.getElementById('execActions').hidden = true;
+  document.getElementById('sessionStart').innerHTML = '';
   document.getElementById('execTitle').textContent = 'Carregando…';
   document.getElementById('execExercises').innerHTML = '';
   try {
     const s = await api('GET', `/api/treinos/sessions/${sessionId}`);
     STATE.currentTemplate = s;
     document.getElementById('execTitle').textContent = `${s.program_nome||'Programa'} · ${s.nome_treino||''}`;
-    document.getElementById('execSub').textContent = `Semana ${s.semana_numero||'-'} · ${s.cor||''} · iniciado em ${new Date(s.started_at).toLocaleString('pt-BR')}`;
+    document.getElementById('execSub').textContent = `Semana ${s.semana_numero||'-'} · ${s.cor||''}`;
     document.getElementById('execBack').href = '#/programa/' + s.program_id;
-    document.getElementById('execExercises').innerHTML = (s.exercicios||[]).map(renderExerciseCard).join('');
-    // Bind autosave em todos inputs
+    document.getElementById('sessionStart').innerHTML = renderSessionStart(s);
+    const exercisesEl = document.getElementById('execExercises');
+    exercisesEl.innerHTML = (s.exercicios||[]).map(renderExerciseCard).join('');
+    exercisesEl.hidden = true;
     document.querySelectorAll('#execExercises input').forEach(inp => {
       inp.addEventListener('change', () => saveSetFromInput(inp));
     });
+    const localStarted = getLocalStartedAt(sessionId);
+    if (localStarted) activateWorkout(localStarted, { silent:true });
   } catch(e){
     document.getElementById('execExercises').innerHTML = `<div style="color:var(--err);padding:16px">${escapeHtml(e.message)}</div>`;
   }
 }
 
+function renderSessionStart(s){
+  const exercises = s.exercicios || [];
+  const qtd = exercises.length;
+  const grupos = [...new Set(exercises.map(ex => ex.grupo_muscular).filter(Boolean))];
+  const grupoTxt = grupos.length ? grupos.join(', ') : (s.cor || '—');
+  const estMin = estimateWorkoutMinutes(exercises);
+  return `
+    <div class="sessionStartCard" id="sessionStartCard">
+      <div class="small" style="text-transform:uppercase;letter-spacing:.5px;font-weight:700">Resumo da sessão</div>
+      <h2 style="margin:4px 0 0">${escapeHtml(s.nome_treino || 'Treino')}</h2>
+      <div class="sessionSummary">
+        <div><b>${escapeHtml(grupoTxt)}</b><span>Grupo muscular</span></div>
+        <div><b>${qtd}</b><span>Exercícios</span></div>
+        <div><b>${estMin} min</b><span>Tempo estimado</span></div>
+        <div><b>${escapeHtml(s.cor || '—')}</b><span>Treino</span></div>
+      </div>
+      <button class="btn full" onclick="confirmStartWorkout()">Iniciar treino</button>
+    </div>`;
+}
+
+function estimateWorkoutMinutes(exercises){
+  const totalSec = (exercises||[]).reduce((acc, ex) => {
+    const sets = Number(ex.series) || (ex.sets?.length || 3);
+    const rest = Number(ex.intervalo_seg) || 60;
+    return acc + Math.max(1, sets) * (45 + rest);
+  }, 0);
+  return Math.max(1, Math.round(totalSec / 60));
+}
+
+function getLocalStartedAt(sessionId){
+  const raw = localStorage.getItem(`workout-started-at:${sessionId}`);
+  const n = raw ? Number(raw) : 0;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function confirmStartWorkout(){
+  if (!STATE.currentSessionId) return;
+  if (!confirm('Pronto para começar?')) return;
+  const startedAt = Date.now();
+  localStorage.setItem(`workout-started-at:${STATE.currentSessionId}`, String(startedAt));
+  if (STATE.currentTemplate) STATE.currentTemplate.started_at = new Date(startedAt).toISOString();
+  activateWorkout(startedAt);
+}
+
+function activateWorkout(startedAt, opts={}){
+  STATE.totalTimer.startedAt = startedAt;
+  const startCard = document.getElementById('sessionStartCard');
+  if (startCard) startCard.hidden = true;
+  document.getElementById('execExercises').hidden = false;
+  document.getElementById('totalTimerBar').hidden = false;
+  document.getElementById('execActions').hidden = false;
+  updateTotalTimer();
+  if (STATE.totalTimer.intervalId) clearInterval(STATE.totalTimer.intervalId);
+  STATE.totalTimer.intervalId = setInterval(updateTotalTimer, 1000);
+  if (!opts.silent) toast('Treino iniciado');
+}
+
+function stopTotalTimer(){
+  if (STATE.totalTimer.intervalId) clearInterval(STATE.totalTimer.intervalId);
+  STATE.totalTimer.intervalId = null;
+  STATE.totalTimer.startedAt = null;
+}
+
+function updateTotalTimer(){
+  if (!STATE.totalTimer.startedAt) return;
+  const elapsed = Math.floor((Date.now() - STATE.totalTimer.startedAt) / 1000);
+  document.getElementById('totalTimerDisplay').textContent = fmtMMSS(elapsed);
+}
+
 function renderExerciseCard(ex){
   const sets = ex.sets && ex.sets.length ? ex.sets : [];
   const seriesAlvo = ex.series || Math.max(sets.length, 3);
-  // Garante linhas para o nº de séries prescritas (preenchidas com vazias)
+  const restSec = Number(ex.intervalo_seg) || 60;
   const allSets = [];
   for (let i=1; i<=Math.max(seriesAlvo, sets.length); i++){
     const found = sets.find(x => x.set_numero === i);
     allSets.push(found || { set_numero:i, reps:null, carga:null, rpe:null });
   }
   return `
-    <div class="exerCard ${ex.concluido?'done':''}" data-exec-id="${ex.id}">
+    <div class="exerCard ${ex.concluido?'done':''}" data-exec-id="${ex.id}" data-rest-sec="${restSec}">
       <div class="exerHead">
         <div>
           <h4>${escapeHtml(ex.exercise_nome || ex.nome_original || '—')}</h4>
@@ -189,10 +269,10 @@ function renderExerciseCard(ex){
         <div><b>séries</b>${ex.series ?? '—'}</div>
         <div><b>reps</b>${escapeHtml(ex.reps||'—')}</div>
         <div><b>cadência</b>${escapeHtml(ex.cadencia||'—')}</div>
-        <div><b>intervalo</b>${ex.intervalo_seg?ex.intervalo_seg+'s':'—'}</div>
+        <div><b>intervalo</b>${restSec}s</div>
       </div>
       <table class="setsTable">
-        <thead><tr><th style="width:30px">#</th><th>reps</th><th>kg</th><th>RPE</th><th style="width:34px"></th></tr></thead>
+        <thead><tr><th style="width:30px">#</th><th>reps</th><th>kg</th><th>RPE</th></tr></thead>
         <tbody>
           ${allSets.map(st => `
             <tr data-set="${st.set_numero}">
@@ -200,13 +280,19 @@ function renderExerciseCard(ex){
               <td><input type="number" inputmode="numeric" min="0" max="999" step="1" data-f="reps" value="${st.reps??''}" placeholder="—"></td>
               <td><input type="number" inputmode="decimal" min="0" max="9999" step="0.5" data-f="carga" value="${st.carga??''}" placeholder="—"></td>
               <td><input type="number" inputmode="decimal" min="0" max="10" step="0.5" data-f="rpe" value="${st.rpe??''}" placeholder="—"></td>
-              <td style="text-align:center">
-                <button title="Iniciar timer (${ex.intervalo_seg||60}s)" style="background:transparent;border:none;cursor:pointer;font-size:16px;padding:4px"
-                  onclick="openTimer(${ex.intervalo_seg||60})">⏱</button>
-              </td>
             </tr>`).join('')}
         </tbody>
       </table>
+      <div class="restPanel">
+        <div>
+          <div class="restClock" id="restClock-${ex.id}">${fmtMMSS(restSec)}</div>
+          <div class="restMeta">Descanso prescrito · <span class="restBadge">✓ Descansado</span></div>
+        </div>
+        <div class="restBtns">
+          <button class="pri" onclick="startRest(${ex.id})">Iniciar descanso</button>
+          <button onclick="skipRest(${ex.id})">Pular descanso</button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -244,13 +330,17 @@ async function toggleExecDone(execId, btn){
 
 async function finishSession(){
   if (!STATE.currentSessionId) return;
-  if (!confirm('Finalizar este treino?')) return;
+  const elapsedSec = STATE.totalTimer.startedAt ? Math.max(0, Math.floor((Date.now() - STATE.totalTimer.startedAt)/1000)) : 0;
+  const duration = fmtMMSS(elapsedSec);
+  if (!confirm(`Concluir treino?\nDuração total: ${duration}`)) return;
   try {
-    const started = STATE.currentTemplate?.started_at ? new Date(STATE.currentTemplate.started_at) : null;
-    const dur = started ? Math.max(1, Math.round((Date.now() - started.getTime())/60000)) : null;
+    const dur = elapsedSec ? Math.max(1, Math.round(elapsedSec/60)) : null;
     await api('PATCH', `/api/treinos/sessions/${STATE.currentSessionId}`, { status:'finished', ...(dur?{duracao_min:dur}:{}) });
-    toast('Treino finalizado ✓');
-    setTimeout(() => location.hash = '#/', 600);
+    localStorage.removeItem(`workout-started-at:${STATE.currentSessionId}`);
+    stopTotalTimer();
+    stopRestTimer();
+    toast(`Treino concluído em ${duration} ✓`);
+    setTimeout(() => location.hash = '#/', 800);
   } catch(e){ toast('Erro: '+e.message, true); }
 }
 async function abortSession(){
@@ -258,73 +348,73 @@ async function abortSession(){
   if (!confirm('Abandonar este treino? O progresso fica registrado, mas a sessão será marcada como abortada.')) return;
   try {
     await api('PATCH', `/api/treinos/sessions/${STATE.currentSessionId}`, { status:'aborted' });
+    localStorage.removeItem(`workout-started-at:${STATE.currentSessionId}`);
+    stopTotalTimer();
+    stopRestTimer();
     toast('Sessão abortada');
     setTimeout(() => location.hash = '#/', 600);
   } catch(e){ toast('Erro: '+e.message, true); }
 }
 
-// ---------- TIMER ----------
+// ---------- TIMERS ----------
 function fmtMMSS(s){ s=Math.max(0,Math.floor(s)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
-function openTimer(sec){
-  STATE.timer.defaultSec = sec || 60;
-  STATE.timer.remaining = STATE.timer.defaultSec;
-  STATE.timer.running = false;
-  document.getElementById('timerBar').hidden = false;
-  document.getElementById('timerToggle').textContent = '▶︎ Iniciar';
-  updateTimerDisplay();
-  if (window.scrollY > 200) window.scrollTo({top: window.scrollY, behavior:'instant'});
+function startRest(execId){
+  const card = document.querySelector(`.exerCard[data-exec-id="${execId}"]`);
+  if (!card) return;
+  stopRestTimer();
+  card.classList.remove('rested');
+  STATE.restTimer.execId = execId;
+  STATE.restTimer.defaultSec = Number(card.dataset.restSec) || 60;
+  STATE.restTimer.remaining = STATE.restTimer.defaultSec;
+  updateRestDisplay(execId);
+  STATE.restTimer.intervalId = setInterval(tickRestTimer, 1000);
 }
-function closeTimer(){
-  const bar = document.getElementById('timerBar');
-  if (bar) bar.hidden = true;
-  if (STATE.timer.intervalId) { clearInterval(STATE.timer.intervalId); STATE.timer.intervalId = null; }
-  STATE.timer.running = false;
+function stopRestTimer(){
+  if (STATE.restTimer.intervalId) clearInterval(STATE.restTimer.intervalId);
+  STATE.restTimer.intervalId = null;
+  STATE.restTimer.execId = null;
 }
-function toggleTimer(){
-  if (STATE.timer.running) {
-    clearInterval(STATE.timer.intervalId);
-    STATE.timer.intervalId = null;
-    STATE.timer.running = false;
-    document.getElementById('timerToggle').textContent = '▶︎ Continuar';
-  } else {
-    STATE.timer.running = true;
-    document.getElementById('timerToggle').textContent = '⏸ Pausar';
-    if (STATE.timer.remaining <= 0) STATE.timer.remaining = STATE.timer.defaultSec;
-    STATE.timer.intervalId = setInterval(tickTimer, 1000);
+function tickRestTimer(){
+  STATE.restTimer.remaining--;
+  const execId = STATE.restTimer.execId;
+  if (!execId) return;
+  if (STATE.restTimer.remaining <= 0){
+    finishRest(execId, true);
+    return;
+  }
+  updateRestDisplay(execId);
+}
+function updateRestDisplay(execId){
+  const el = document.getElementById(`restClock-${execId}`);
+  if (!el) return;
+  el.textContent = fmtMMSS(STATE.restTimer.remaining);
+  el.className = 'restClock' + (STATE.restTimer.remaining <= 3 ? ' go' : (STATE.restTimer.remaining <= 10 ? ' warn' : ''));
+}
+function skipRest(execId){
+  finishRest(execId, false);
+}
+function finishRest(execId, shouldBeep){
+  const el = document.getElementById(`restClock-${execId}`);
+  const card = document.querySelector(`.exerCard[data-exec-id="${execId}"]`);
+  if (STATE.restTimer.execId === execId) stopRestTimer();
+  if (el) { el.textContent = '00:00'; el.className = 'restClock'; }
+  if (card) card.classList.add('rested');
+  if (shouldBeep) {
+    beep();
+    if (navigator.vibrate) navigator.vibrate([180,80,180]);
   }
 }
-function resetTimer(){
-  STATE.timer.remaining = STATE.timer.defaultSec;
-  updateTimerDisplay();
-}
-function tickTimer(){
-  STATE.timer.remaining--;
-  if (STATE.timer.remaining <= 0){
-    beep(880, 200); setTimeout(()=>beep(880, 200), 250); setTimeout(()=>beep(1320, 400), 500);
-    clearInterval(STATE.timer.intervalId); STATE.timer.intervalId = null;
-    STATE.timer.running = false;
-    STATE.timer.remaining = 0;
-    document.getElementById('timerToggle').textContent = '▶︎ Reiniciar';
-    if (navigator.vibrate) navigator.vibrate([200,100,200]);
-  }
-  updateTimerDisplay();
-}
-function updateTimerDisplay(){
-  const el = document.getElementById('timerDisplay');
-  el.textContent = fmtMMSS(STATE.timer.remaining);
-  el.className = 'timerDisplay' + (STATE.timer.remaining <= 3 ? ' go' : (STATE.timer.remaining <= 10 ? ' warn' : ''));
-}
-let _audioCtx;
-function beep(freq, durMs){
+function beep(){
   try {
-    _audioCtx = _audioCtx || new (window.AudioContext||window.webkitAudioContext)();
-    const o = _audioCtx.createOscillator();
-    const g = _audioCtx.createGain();
-    o.type='sine'; o.frequency.value = freq; o.connect(g); g.connect(_audioCtx.destination);
-    g.gain.setValueAtTime(0.001, _audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.3, _audioCtx.currentTime+0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + durMs/1000);
-    o.start(); o.stop(_audioCtx.currentTime + durMs/1000 + 0.05);
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ac = new Ctx();
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.frequency.value = 880; g.gain.value = 0.2;
+    o.start();
+    setTimeout(() => { o.stop(); ac.close(); }, 250);
   } catch {}
 }
 

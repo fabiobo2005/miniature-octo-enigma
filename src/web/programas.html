@@ -43,6 +43,17 @@
   .tplRow .ct{color:var(--mut);font-size:12px}
 
   /* ===== Execução ===== */
+  .sessionStartCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .sessionSummary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 16px}
+  .sessionSummary div{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px}
+  .sessionSummary b{display:block;color:var(--pri-d);font-size:18px;line-height:1.1}
+  .sessionSummary span{display:block;color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.4px;margin-top:3px}
+  .totalTimerBar{position:sticky;top:calc(74px + var(--safe-top));z-index:45;background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:var(--shadow)}
+  .totalTimerBar[hidden]{display:none}
+  .totalTimerBar .label{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+  .totalTimerBar .totalTime{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--pri-d);letter-spacing:-.8px}
+  .execActions{display:flex;gap:8px;margin-top:14px}
+  .execActions[hidden]{display:none}
   .exerCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);
             padding:14px;margin-bottom:10px;box-shadow:var(--shadow-l);transition:.15s}
   .exerCard.done{opacity:.65;border-color:var(--pri)}
@@ -60,21 +71,20 @@
   .setsTable td{padding:3px 2px}
   .setsTable input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px;text-align:center}
   .setsTable input:focus{outline:none;border-color:var(--pri)}
-  .addSetBtn{margin-top:6px;width:100%;padding:6px;border:1px dashed var(--line);background:transparent;border-radius:8px;color:var(--mut);cursor:pointer;font-size:12px}
-  .addSetBtn:hover{border-color:var(--pri);color:var(--pri)}
-
-  /* Timer fixo no rodapé */
-  .timerBar{position:fixed;bottom:0;left:0;right:0;background:var(--surf);border-top:1px solid var(--line);
-            padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.08);z-index:50}
-  .timerDisplay{font-size:32px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px;min-width:90px;text-align:center}
-  .timerDisplay.warn{color:#d6a800}
-  .timerDisplay.go{color:var(--err);animation:pulse 1s infinite}
+  .restPanel{margin-top:10px;border:1px solid var(--line);background:var(--bg);border-radius:14px;padding:10px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+  .restPanel .restClock{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--pri-d);letter-spacing:-1px;line-height:1}
+  .restPanel .restClock.warn{color:var(--warn)}
+  .restPanel .restClock.go{color:var(--err);animation:pulse 1s infinite}
+  .restPanel .restMeta{font-size:11px;color:var(--mut);margin-top:3px}
+  .restBtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .restBtns button{padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surf);cursor:pointer;font-size:12px;font-weight:700}
+  .restBtns button.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+  .restBadge{display:none;color:var(--pri-d);background:var(--pri-bg);border:1px solid var(--pri);border-radius:99px;padding:5px 9px;font-size:11px;font-weight:800}
+  .exerCard.rested .restBadge{display:inline-flex}
   @keyframes pulse{50%{opacity:.5}}
-  .timerBtns{display:flex;gap:6px;flex:1}
-  .timerBtns button{flex:1;padding:8px 0;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:600;cursor:pointer;font-size:13px}
-  .timerBtns button.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
 
-  .execBottomPad{height:90px}
+  .execBottomPad{height:32px}
+  @media(max-width:640px){.sessionSummary{grid-template-columns:repeat(2,1fr)}.totalTimerBar{top:calc(58px + var(--safe-top))}.execActions{flex-direction:column}.restPanel{grid-template-columns:1fr}.restBtns{justify-content:stretch}.restBtns button{flex:1}}
 
   .crumbs{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--mut);margin-bottom:8px}
   .crumbs a{color:var(--pri);text-decoration:none}
@@ -138,25 +148,21 @@
   <!-- ====== Execução do treino ====== -->
   <section id="viewExec" hidden>
     <div class="crumbs"><a id="execBack" href="#/">← voltar</a></div>
+    <div class="totalTimerBar" id="totalTimerBar" hidden>
+      <div><div class="label">Tempo total</div><div class="totalTime" id="totalTimerDisplay">00:00</div></div>
+      <div class="small" id="totalTimerStatus">Treino em andamento</div>
+    </div>
     <div class="progHero">
       <h1 id="execTitle">—</h1>
       <p id="execSub" class="small" style="margin:0;color:var(--mut)"></p>
     </div>
+    <div id="sessionStart"></div>
     <div id="execExercises"></div>
-    <div style="display:flex;gap:8px;margin-top:14px">
+    <div class="execActions" id="execActions" hidden>
       <button class="btn ghost" style="flex:1" onclick="abortSession()">Abandonar</button>
-      <button class="btn" style="flex:2" onclick="finishSession()">Finalizar treino ✓</button>
+      <button class="btn" style="flex:2" onclick="finishSession()">Concluir treino ✓</button>
     </div>
     <div class="execBottomPad"></div>
-    <!-- Timer bar -->
-    <div class="timerBar" id="timerBar" hidden>
-      <div class="timerDisplay" id="timerDisplay">00:00</div>
-      <div class="timerBtns">
-        <button id="timerToggle" class="pri" onclick="toggleTimer()">▶︎ Iniciar</button>
-        <button onclick="resetTimer()">Reset</button>
-        <button onclick="closeTimer()">Fechar</button>
-      </div>
-    </div>
   </section>
 
 </div>
