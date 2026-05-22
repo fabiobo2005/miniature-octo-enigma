@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<title>APEX · Portal do Administrador</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<style>
+  .adminTabs{display:flex;gap:8px;margin:6px 0 14px;overflow-x:auto;padding-bottom:2px}.tabBtn{flex:1;min-width:max-content;border:1px solid var(--line);background:var(--surf);border-radius:999px;padding:10px 12px;font-weight:700;color:var(--mut);cursor:pointer}.tabBtn.on{background:var(--pri);border-color:var(--pri);color:#fff}.metricGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}.metricCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow-l)}.metricCard span{display:block;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}.metricCard b{display:block;margin-top:4px;font-size:30px;letter-spacing:-.6px}.metricCard.hot{border-color:var(--warn);background:rgba(230,165,90,.12)}.adminGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.adminCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow-l);display:flex;flex-direction:column;gap:10px}.adminCard h3{margin:0;font-size:18px}.metaLine{color:var(--mut);font-size:13px;word-break:break-word}.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;background:var(--surf2);border:1px solid var(--line);padding:3px 9px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.3px}.pill.ok{background:var(--pri-bg);color:var(--pri-d);border-color:var(--pri)}.pill.warn{background:rgba(230,165,90,.14);color:var(--warn);border-color:var(--warn)}.pill.err{background:rgba(217,107,122,.12);color:var(--err);border-color:var(--err)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}.btn.danger{background:var(--err)}.btn.danger:hover{background:#bf5364}.btn.warn{background:var(--warn)}.btn.warn:hover{background:#c98942}.toolbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}.empty{padding:18px;text-align:center;color:var(--mut)}.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surf);box-shadow:var(--shadow-l)}table{width:100%;border-collapse:collapse;min-width:780px}th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;background:var(--surf2)}tr:last-child td{border-bottom:0}.rowActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.roleSelect{min-width:112px;background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}.compactJson{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;max-width:340px;white-space:normal;word-break:break-word}.topbar .backBtn{text-decoration:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar"><div class="topRow">
+    <div class="avatar"><span id="avInit">?</span></div>
+    <div class="greet"><p class="hi" id="greet">Bom dia</p><p class="nm"><span id="userChip">—</span> · Admin <span class="areaBadge">🛡️ Portal</span></p></div>
+    <a class="iconBtn backBtn" href="/" title="Voltar" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg></a>
+    <button class="iconBtn" onclick="adminLogout()" title="Sair" aria-label="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></button>
+    <button class="iconBtn" onclick="toggleTheme()" title="Tema" aria-label="Tema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  </div></div>
+
+  <div class="hero"><p class="lbl">APEX · administração</p><div class="big">Portal do Administrador</div><div class="row"><div class="stat"><b id="heroUsers">—</b><span>usuários</span></div><div class="stat"><b id="heroPending">—</b><span>pendentes</span></div><div class="stat"><b id="heroSessions">—</b><span>sessões 30d</span></div></div></div>
+
+  <div class="adminTabs" role="tablist">
+    <button class="tabBtn on" data-tab="overview" type="button">Visão geral</button>
+    <button class="tabBtn" data-tab="pending" type="button">Aprovações</button>
+    <button class="tabBtn" data-tab="users" type="button">Usuários</button>
+    <button class="tabBtn" data-tab="audit" type="button">Auditoria</button>
+  </div>
+
+  <section id="tabOverview">
+    <div class="metricGrid">
+      <div class="metricCard"><span>Total users</span><b id="metricTotalUsers">—</b></div>
+      <div class="metricCard"><span>Alunos ativos</span><b id="metricActiveStudents">—</b></div>
+      <div class="metricCard"><span>Personals ativos</span><b id="metricActivePersonals">—</b></div>
+      <div class="metricCard hot"><span>Pendentes</span><b id="metricPendingUsers">—</b></div>
+      <div class="metricCard"><span>Programas ativos</span><b id="metricActivePrograms">—</b></div>
+      <div class="metricCard"><span>Sessões 30d</span><b id="metricSessions30d">—</b></div>
+    </div>
+    <div class="card"><h2>⏳ Últimos pendentes <span class="sub">preview 5</span></h2><div id="pendingPreview" class="empty">Carregando…</div></div>
+  </section>
+
+  <section id="tabPending" hidden>
+    <div class="card"><h2>✅ Aprovações pendentes</h2><div id="pendingList" class="adminGrid"><div class="empty">Carregando…</div></div></div>
+  </section>
+
+  <section id="tabUsers" hidden>
+    <div class="card">
+      <h2>👥 Usuários</h2>
+      <div class="toolbar">
+        <div class="field"><label for="filterSearch">Busca</label><input id="filterSearch" type="search" placeholder="Nome ou email"></div>
+        <div class="field"><label for="filterStatus">Status</label><select id="filterStatus"><option value="">Todos</option><option value="active">Active</option><option value="pending">Pending</option><option value="disabled">Disabled</option></select></div>
+        <div class="field"><label for="filterRole">Role</label><select id="filterRole"><option value="">Todas</option><option value="aluno">Aluno</option><option value="personal">Personal</option><option value="admin">Admin</option></select></div>
+      </div>
+      <div id="usersTable" class="tableWrap"><div class="empty">Carregando…</div></div>
+    </div>
+  </section>
+
+  <section id="tabAudit" hidden>
+    <div class="card"><h2>🧾 Auditoria <span class="sub">últimos 100</span></h2><div id="auditTable" class="tableWrap"><div class="empty">Carregando…</div></div></div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/js/core.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>
