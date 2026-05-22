@@ -5,7 +5,7 @@ const COR_TO_HEX = {
   roxo:'#7e57c2', rosa:'#e26a8a', cinza:'#9aa0a6', preto:'#222', aerobio:'#2a9d8f', 'aeróbio':'#2a9d8f'
 };
 
-const TSTATE = { user:null, atual:null, proximo:null, coach:null, sessions:[], programs:[], personals:[], filter:'', chooserVisible:false, noProgramTab:'' };
+const TSTATE = { user:null, atual:null, proximo:null, coach:null, activeAssignment:null, sessions:[], programs:[], personals:[], filter:'', chooserVisible:false, noProgramTab:'' };
 
 function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function corHex(c){ return COR_TO_HEX[String(c || '').toLowerCase()] || '#9aa0a6'; }
@@ -25,6 +25,10 @@ function coachSpecialtyText(coach){
 }
 function sessionTime(s){ return s.finished_at || s.started_at || s.data; }
 function app(){ return document.getElementById('treinosApp'); }
+function currentCoach(){ return TSTATE.coach?.coach || null; }
+function currentAssignment(){ return TSTATE.activeAssignment?.assignment || TSTATE.atual?.assignment || TSTATE.proximo?.assignment || null; }
+function activeProgram(){ return TSTATE.activeAssignment?.program || TSTATE.atual?.program || TSTATE.proximo?.program || null; }
+function isCoachAssignedProgram(){ return !!currentCoach() && currentAssignment()?.source === 'coach'; }
 
 async function loadUser(){
   const stored = USER.get();
@@ -40,14 +44,16 @@ async function loadDashboard(){
   app().innerHTML = '<div class="loading">Carregando treinos…</div>';
   try {
     await loadUser();
-    const [atual, proximo, coach] = await Promise.all([
+    const [atual, proximo, coach, activeAssignment] = await Promise.all([
       api('GET','/api/treinos/me/assignments/atual'),
       api('GET','/api/treinos/me/proximo-treino'),
-      api('GET','/api/treinos/me/coach')
+      api('GET','/api/treinos/me/coach'),
+      api('GET','/api/treinos/me/assignment-ativo')
     ]);
     TSTATE.atual = atual;
     TSTATE.proximo = proximo;
     TSTATE.coach = coach;
+    TSTATE.activeAssignment = activeAssignment;
     TSTATE.sessions = atual?.assignment ? await api('GET','/api/treinos/sessions?limit=200') : [];
     render();
   } catch (e) {
@@ -72,7 +78,7 @@ function renderActive(){
   const next = TSTATE.proximo.proximo_template;
   const programSessions = TSTATE.sessions.filter(s => !program.id || s.program_id === program.id);
   const lastFive = TSTATE.sessions.slice(0,5);
-  const coach = atual.coach;
+  const coach = currentCoach() || atual.coach;
   app().innerHTML = `
     ${programCard(program, currentWeek, days, percent)}
     ${coachPanel(coach)}
@@ -100,6 +106,7 @@ function programCard(program, currentWeek, days, percent){
           </div>
         </div>
         <span class="nivelTag ${escapeHtml(program.nivel || '')}">${escapeHtml(nivelLabel(program.nivel))}</span>
+        ${isCoachAssignedProgram() ? '<span class="coachBadge">Recomendado pelo seu personal</span>' : ''}
       </div>
       <div class="progressTrack" aria-label="Progresso do programa"><div class="progressFill" style="width:${percent}%"></div></div>
       <div class="programActions"><button class="subtleLink" id="toggleChooser" type="button">Trocar programa</button></div>
@@ -186,23 +193,30 @@ function renderSuggestion(p){
 }
 
 async function renderChooserOnly(){
-  const hasCoach = !!TSTATE.coach?.coach;
-  if (hasCoach) TSTATE.noProgramTab = TSTATE.noProgramTab || 'programas';
+  const hasCoach = !!currentCoach();
+  if (hasCoach) TSTATE.noProgramTab = 'programas';
   if (!TSTATE.noProgramTab) TSTATE.noProgramTab = 'personals';
   app().innerHTML = `${noProgramBanner()}<section class="card">${noProgramTabs()}<div id="noProgramPanel">${TSTATE.noProgramTab === 'programas' ? programChooserPanel() : personalFinderPanel()}</div></section>`;
   if (TSTATE.noProgramTab === 'programas') await loadPrograms();
   else await loadPersonals();
 }
 
+function coachInfoNotice(){
+  const coach = currentCoach();
+  if (!coach) return '';
+  return `<div class="coachNotice">Você está sendo acompanhado por <b>${escapeHtml(coach.name || 'seu personal')}</b>. Para trocar de personal, fale com seu personal ou envie uma solicitação (em breve).</div>`;
+}
+
 function noProgramBanner(){
-  const coach = TSTATE.coach?.coach;
+  const coach = currentCoach();
   if (coach) {
-    return `<section class="banner"><h2>Seu personal: ${escapeHtml(coach.name)}</h2><p>Aguardando seu personal atribuir um programa, ou escolha um você mesmo:</p></section>`;
+    return `<section class="banner"><h2>Seu personal: ${escapeHtml(coach.name)}</h2><p>Aguardando seu personal atribuir um programa.</p></section>`;
   }
   return `<section class="banner"><h2>Você ainda não tem um programa ativo.</h2><p>Encontre um personal ou escolha um programa para começar.</p></section>`;
 }
 
 function noProgramTabs(){
+  if (currentCoach()) return coachInfoNotice();
   const tabs = [['personals','Encontrar personal'],['programas','Escolher programa']];
   return `<div class="tabBar" role="tablist">${tabs.map(([id,label]) => `<button class="tabBtn ${TSTATE.noProgramTab === id ? 'on' : ''}" data-tab="${id}" type="button" role="tab" aria-selected="${TSTATE.noProgramTab === id}">${label}</button>`).join('')}</div>`;
 }
@@ -217,12 +231,26 @@ function personalFinderPanel(){
 }
 
 function programChooserPanel(){
-  const hint = TSTATE.coach?.coach
-    ? 'Você já tem personal. Você também pode iniciar um programa agora enquanto aguarda a recomendação.'
+  if (isCoachAssignedProgram()) return coachProgramLockedPanel();
+  const hint = currentCoach()
+    ? 'Você pode escolher um programa enquanto aguarda recomendação do seu personal.'
     : 'Sem personal ainda? Recomendamos voltar à aba "Encontrar personal" antes de começar.';
   return `<div class="tabPanel">
-    <p class="small" style="color:var(--mut);margin-top:0">${escapeHtml(hint)}</p>
+    <p class="small coachHint" style="color:var(--mut);margin-top:0">${escapeHtml(hint)}</p>
     <h2>Escolher programa</h2>${filterBar()}<div id="programGrid" class="progGrid"><div class="loading">Carregando catálogo…</div></div>
+  </div>`;
+}
+
+function coachProgramLockedPanel(){
+  const program = activeProgram() || {};
+  return `<div class="tabPanel">
+    <h2>Escolher programa</h2>
+    <article class="progCard recommended">
+      <div class="meta"><span class="coachBadge">Recomendado pelo seu personal</span>${program.nivel ? `<span class="nivelTag ${escapeHtml(program.nivel)}">${escapeHtml(nivelLabel(program.nivel))}</span>` : ''}</div>
+      <h3>${escapeHtml(program.nome || 'Programa atual')}</h3>
+      ${program.objetivo ? `<p>${escapeHtml(program.objetivo)}</p>` : ''}
+    </article>
+    <p class="small coachHint">Seu programa foi definido pelo seu personal. Para trocar, fale com seu personal.</p>
   </div>`;
 }
 
@@ -237,14 +265,25 @@ async function showChooserInline(){
   TSTATE.chooserVisible = !TSTATE.chooserVisible;
   mount.hidden = !TSTATE.chooserVisible;
   if (!TSTATE.chooserVisible) return;
-  mount.innerHTML = `<section class="card"><h2>Trocar programa</h2><p class="small" style="color:var(--mut);margin-top:-6px">Ao iniciar outro programa, ele substituirá o atual.</p>${filterBar()}<div id="programGrid" class="progGrid"><div class="loading">Carregando catálogo…</div></div></section>`;
-  await loadPrograms();
+  if (isCoachAssignedProgram()) {
+    mount.innerHTML = `<section class="card">${coachProgramLockedPanel()}</section>`;
+  } else {
+    const hint = currentCoach()
+      ? 'Você pode escolher um programa enquanto aguarda recomendação do seu personal.'
+      : 'Ao iniciar outro programa, ele substituirá o atual.';
+    mount.innerHTML = `<section class="card"><h2>Trocar programa</h2><p class="small" style="color:var(--mut);margin-top:-6px">${escapeHtml(hint)}</p>${filterBar()}<div id="programGrid" class="progGrid"><div class="loading">Carregando catálogo…</div></div></section>`;
+    await loadPrograms();
+  }
   mount.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 async function loadPrograms(){
   const grid = document.getElementById('programGrid');
   if (!grid) return;
+  if (isCoachAssignedProgram()) {
+    grid.innerHTML = coachProgramLockedPanel();
+    return;
+  }
   grid.innerHTML = '<div class="loading">Carregando catálogo…</div>';
   try {
     const qs = TSTATE.filter ? `?nivel=${encodeURIComponent(TSTATE.filter)}` : '';
@@ -308,6 +347,12 @@ async function requestCoach(coachId, coachName, btn){
 
 async function assignProgram(programId, btn){
   if (!programId) return;
+  if (isCoachAssignedProgram()) {
+    toast('Seu programa foi definido pelo seu personal. Para trocar, fale com seu personal.', true);
+    return;
+  }
+  const current = currentAssignment();
+  if (current && !confirm('Isso encerrará seu programa atual e iniciará um novo. Continuar?')) return;
   const oldText = btn?.textContent;
   if (btn) { btn.disabled = true; btn.textContent = 'Atribuindo…'; }
   try {
