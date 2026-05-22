@@ -609,3 +609,271 @@ programasRouter.delete('/audio-cue-profiles/:id', async (req, res, next) => {
     res.status(204).end();
   } catch (e) { next(e); }
 });
+
+
+// =============================================================================
+// COACH — portal do personal (Sub-fase D)
+// =============================================================================
+
+const coachHistoryQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+programasRouter.get('/coach/alunos/:alunoId/dashboard', async (req, res, next) => {
+  try {
+    const coachUid = requireUid(req, res); if (!coachUid) return;
+    const alunoUid = String(req.params.alunoId || '');
+    const ok = await assertCoachOf(coachUid, alunoUid);
+    if (!ok) return res.status(403).json({ error: 'not coach of aluno' });
+
+    const data = await withClient(async c => {
+      const aluno = (await c.query(
+        `SELECT id, name, email, goal, birth_date, height_cm
+           FROM app.user
+          WHERE id=$1 AND active = TRUE`,
+        [alunoUid]
+      )).rows[0];
+      if (!aluno) return null;
+
+      const programa_atual = (await c.query(
+        `WITH pa AS (
+           SELECT pa.*, p.nome, p.nivel, p.objetivo, p.duracao_semanas,
+                  LEAST(GREATEST(FLOOR((CURRENT_DATE - pa.started_on)::numeric / 7)::int + 1, 1), p.duracao_semanas) AS semana_atual
+             FROM treinos.program_assignment pa
+             JOIN treinos.program p ON p.id = pa.program_id
+            WHERE pa.aluno_user_id=$1 AND pa.status='ativo'
+            ORDER BY pa.started_on DESC, pa.id DESC
+            LIMIT 1
+         )
+         SELECT pa.*,
+                json_build_object('id', pa.program_id, 'nome', pa.nome, 'nivel', pa.nivel,
+                                  'objetivo', pa.objetivo, 'duracao_semanas', pa.duracao_semanas) AS program,
+                COALESCE((
+                  SELECT json_agg(json_build_object(
+                    'id', wt.id, 'semana_numero', wt.semana_numero, 'cor', wt.cor,
+                    'nome_treino', wt.nome_treino, 'ordem', wt.ordem,
+                    'exercicios_count', (SELECT COUNT(*)::int FROM treinos.exercise_prescription ep WHERE ep.workout_template_id = wt.id)
+                  ) ORDER BY wt.ordem, wt.id)
+                  FROM treinos.workout_template wt
+                  WHERE wt.program_id = pa.program_id AND wt.semana_numero = pa.semana_atual
+                ), '[]'::json) AS dias
+           FROM pa`,
+        [alunoUid]
+      )).rows[0] ?? null;
+
+      const metricas = (await c.query(
+        `WITH sessoes AS (
+           SELECT s.*, wt.cor, wt.nome_treino
+             FROM treinos.workout_session s
+             LEFT JOIN treinos.workout_template wt ON wt.id = s.workout_template_id
+            WHERE s.user_id=$1
+         ), agg AS (
+           SELECT COUNT(*)::int AS sessoes_total,
+                  COUNT(*) FILTER (WHERE started_at >= now() - interval '7 days')::int AS sessoes_ultimos_7d,
+                  COUNT(*) FILTER (WHERE started_at >= now() - interval '30 days')::int AS sessoes_ultimos_30d
+             FROM sessoes
+         ), last_s AS (
+           SELECT id, started_at, finished_at, cor, nome_treino
+             FROM sessoes
+            ORDER BY started_at DESC, id DESC
+            LIMIT 1
+         ), volume AS (
+           SELECT COALESCE(SUM(COALESCE(se.carga,0) * COALESCE(se.reps,0)),0)::numeric(12,2) AS volume_total_kg
+             FROM treinos.workout_session s
+             JOIN treinos.exercise_execution ee ON ee.workout_session_id = s.id
+             JOIN treinos.set_execution se ON se.exercise_execution_id = ee.id
+            WHERE s.user_id=$1 AND s.started_at >= now() - interval '30 days'
+         )
+         SELECT agg.sessoes_total, agg.sessoes_ultimos_7d, agg.sessoes_ultimos_30d,
+                (SELECT row_to_json(last_s) FROM last_s) AS ultimo_treino,
+                LEAST(100, ROUND((agg.sessoes_ultimos_30d::numeric / 21) * 100))::int AS pct_adesao_30d,
+                volume.volume_total_kg
+           FROM agg, volume`,
+        [alunoUid]
+      )).rows[0];
+
+      const ultimas_sessoes = (await c.query(
+        `SELECT s.id, s.started_at, s.finished_at, wt.cor, wt.nome_treino,
+                COUNT(ee.id)::int AS exercicios_count
+           FROM treinos.workout_session s
+           LEFT JOIN treinos.workout_template wt ON wt.id = s.workout_template_id
+           LEFT JOIN treinos.exercise_execution ee ON ee.workout_session_id = s.id
+          WHERE s.user_id=$1
+          GROUP BY s.id, wt.cor, wt.nome_treino
+          ORDER BY s.started_at DESC, s.id DESC
+          LIMIT 10`,
+        [alunoUid]
+      )).rows;
+
+      return { aluno, programa_atual, metricas, ultimas_sessoes };
+    });
+
+    if (!data) return res.status(404).json({ error: 'aluno not found' });
+    res.json(data);
+  } catch (e) { next(e); }
+});
+
+programasRouter.get('/coach/alunos/:alunoId/historico', validate(coachHistoryQuery, 'query'), async (req, res, next) => {
+  try {
+    const coachUid = requireUid(req, res); if (!coachUid) return;
+    const alunoUid = String(req.params.alunoId || '');
+    const ok = await assertCoachOf(coachUid, alunoUid);
+    if (!ok) return res.status(403).json({ error: 'not coach of aluno' });
+    const q = (req as any).validatedQuery as z.infer<typeof coachHistoryQuery>;
+
+    const data = await withClient(async c => {
+      const total = Number((await c.query(
+        `SELECT COUNT(*)::int AS total FROM treinos.workout_session WHERE user_id=$1`,
+        [alunoUid]
+      )).rows[0]?.total ?? 0);
+
+      const sessoes = (await c.query(
+        `SELECT s.id, s.started_at, s.finished_at, s.status, wt.cor, wt.nome_treino, s.semana_numero
+           FROM treinos.workout_session s
+           LEFT JOIN treinos.workout_template wt ON wt.id = s.workout_template_id
+          WHERE s.user_id=$1
+          ORDER BY s.started_at DESC, s.id DESC
+          LIMIT $2 OFFSET $3`,
+        [alunoUid, q.limit, q.offset]
+      )).rows;
+
+      if (!sessoes.length) return { total, sessoes };
+      const ids = sessoes.map(s => s.id);
+      const exercicios = (await c.query(
+        `SELECT ee.workout_session_id,
+                ee.id,
+                ec.nome_padrao AS exercise_nome,
+                ec.grupo_muscular,
+                COALESCE(json_agg(json_build_object(
+                  'set_numero', se.set_numero, 'reps', se.reps, 'carga', se.carga, 'rpe', se.rpe
+                ) ORDER BY se.set_numero) FILTER (WHERE se.id IS NOT NULL), '[]'::json) AS sets
+           FROM treinos.exercise_execution ee
+           JOIN treinos.exercise_catalog ec ON ec.id = ee.exercise_catalog_id
+           LEFT JOIN treinos.set_execution se ON se.exercise_execution_id = ee.id
+          WHERE ee.workout_session_id = ANY($1::int[])
+          GROUP BY ee.workout_session_id, ee.id, ee.ordem, ec.nome_padrao, ec.grupo_muscular
+          ORDER BY ee.workout_session_id, ee.ordem, ee.id`,
+        [ids]
+      )).rows;
+      const bySession = new Map<number, any[]>();
+      for (const ex of exercicios) {
+        const arr = bySession.get(ex.workout_session_id) || [];
+        arr.push({ id: ex.id, exercise_nome: ex.exercise_nome, grupo_muscular: ex.grupo_muscular, sets: ex.sets });
+        bySession.set(ex.workout_session_id, arr);
+      }
+      return { total, sessoes: sessoes.map(s => ({ ...s, exercicios: bySession.get(s.id) || [] })) };
+    });
+
+    res.json(data);
+  } catch (e) { next(e); }
+});
+
+programasRouter.get('/coach/me/dashboard', async (req, res, next) => {
+  try {
+    const coachUid = requireUid(req, res); if (!coachUid) return;
+
+    const data = await withClient(async c => {
+      const coach = (await c.query(
+        `SELECT id, name, goal FROM app.user WHERE id=$1 AND active = TRUE`,
+        [coachUid]
+      )).rows[0];
+      if (!coach) return null;
+
+      const summary = (await c.query(
+        `WITH alunos AS (
+           SELECT ca.aluno_user_id
+             FROM treinos.coach_assignment ca
+            WHERE ca.coach_user_id=$1 AND ca.status='ativo'
+         )
+         SELECT (SELECT COUNT(*)::int FROM alunos) AS total_alunos,
+                (SELECT COUNT(DISTINCT s.user_id)::int
+                   FROM treinos.workout_session s
+                   JOIN alunos a ON a.aluno_user_id = s.user_id
+                  WHERE s.started_at >= now() - interval '7 days') AS alunos_ativos_7d`,
+        [coachUid]
+      )).rows[0];
+
+      const alunos = (await c.query(
+        `WITH base AS (
+           SELECT au.id, au.name,
+                  pa.program_id, pa.started_on, p.nome AS programa_atual_nome, p.duracao_semanas,
+                  CASE WHEN pa.id IS NULL THEN NULL
+                       ELSE LEAST(GREATEST(FLOOR((CURRENT_DATE - pa.started_on)::numeric / 7)::int + 1, 1), p.duracao_semanas)
+                   END AS semana_atual
+             FROM treinos.coach_assignment ca
+             JOIN app.user au ON au.id = ca.aluno_user_id
+             LEFT JOIN treinos.program_assignment pa ON pa.aluno_user_id = au.id AND pa.status='ativo'
+             LEFT JOIN treinos.program p ON p.id = pa.program_id
+            WHERE ca.coach_user_id=$1 AND ca.status='ativo'
+         )
+         SELECT b.id, b.name, b.programa_atual_nome,
+                last_s.ultimo_treino_at,
+                COALESCE(s7.sessoes_7d,0)::int AS sessoes_7d,
+                LEAST(100, ROUND((COALESCE(s30.sessoes_30d,0)::numeric / 21) * 100))::int AS pct_adesao_30d
+           FROM base b
+           LEFT JOIN LATERAL (
+             SELECT MAX(started_at) AS ultimo_treino_at FROM treinos.workout_session s WHERE s.user_id = b.id
+           ) last_s ON TRUE
+           LEFT JOIN LATERAL (
+             SELECT COUNT(*)::int AS sessoes_7d FROM treinos.workout_session s WHERE s.user_id = b.id AND s.started_at >= now() - interval '7 days'
+           ) s7 ON TRUE
+           LEFT JOIN LATERAL (
+             SELECT COUNT(*)::int AS sessoes_30d FROM treinos.workout_session s WHERE s.user_id = b.id AND s.started_at >= now() - interval '30 days'
+           ) s30 ON TRUE
+          ORDER BY b.name`,
+        [coachUid]
+      )).rows;
+
+      const proximos_treinos = (await c.query(
+        `WITH base AS (
+           SELECT au.id AS aluno_id, au.name AS aluno_nome, pa.program_id,
+                  LEAST(GREATEST(FLOOR((CURRENT_DATE - pa.started_on)::numeric / 7)::int + 1, 1), p.duracao_semanas) AS semana_atual
+             FROM treinos.coach_assignment ca
+             JOIN app.user au ON au.id = ca.aluno_user_id
+             JOIN treinos.program_assignment pa ON pa.aluno_user_id = au.id AND pa.status='ativo'
+             JOIN treinos.program p ON p.id = pa.program_id
+            WHERE ca.coach_user_id=$1 AND ca.status='ativo'
+         )
+         SELECT b.aluno_id, b.aluno_nome,
+                COALESCE(next_wt.id, first_wt.id) AS workout_template_id,
+                COALESCE(next_wt.cor, first_wt.cor) AS cor,
+                COALESCE(next_wt.nome_treino, first_wt.nome_treino) AS nome_treino,
+                b.semana_atual
+           FROM base b
+           LEFT JOIN LATERAL (
+             SELECT wt.ordem
+               FROM treinos.workout_session s
+               JOIN treinos.workout_template wt ON wt.id = s.workout_template_id
+              WHERE s.user_id = b.aluno_id AND s.program_id = b.program_id AND s.semana_numero = b.semana_atual
+              ORDER BY s.started_at DESC, s.id DESC
+              LIMIT 1
+           ) last_wt ON TRUE
+           LEFT JOIN LATERAL (
+             SELECT id, cor, nome_treino
+               FROM treinos.workout_template wt
+              WHERE wt.program_id = b.program_id AND wt.semana_numero = b.semana_atual
+                AND last_wt.ordem IS NOT NULL AND wt.ordem > last_wt.ordem
+              ORDER BY wt.ordem, wt.id
+              LIMIT 1
+           ) next_wt ON TRUE
+           LEFT JOIN LATERAL (
+             SELECT id, cor, nome_treino
+               FROM treinos.workout_template wt
+              WHERE wt.program_id = b.program_id AND wt.semana_numero = b.semana_atual
+              ORDER BY wt.ordem, wt.id
+              LIMIT 1
+           ) first_wt ON TRUE
+          WHERE COALESCE(next_wt.id, first_wt.id) IS NOT NULL
+          ORDER BY b.aluno_nome
+          LIMIT 20`,
+        [coachUid]
+      )).rows;
+
+      return { coach, total_alunos: summary.total_alunos, alunos_ativos_7d: summary.alunos_ativos_7d, proximos_treinos, alunos };
+    });
+
+    if (!data) return res.status(404).json({ error: 'coach not found' });
+    res.json(data);
+  } catch (e) { next(e); }
+});

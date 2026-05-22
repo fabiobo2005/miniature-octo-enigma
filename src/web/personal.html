@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<title>APEX · Portal do Personal</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<style>
+  .tabs{display:flex;gap:8px;margin:6px 0 14px}.tabBtn{flex:1;border:1px solid var(--line);background:var(--surf);border-radius:999px;padding:10px 12px;font-weight:700;color:var(--mut);cursor:pointer}.tabBtn.on{background:var(--pri);border-color:var(--pri);color:#fff}.metricGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}.metricCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow-l)}.metricCard span{display:block;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}.metricCard b{display:block;margin-top:4px;font-size:30px;letter-spacing:-.6px}.studentGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}.studentCard{background:var(--surf);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow-l);display:flex;flex-direction:column;gap:10px}.studentCard h3{margin:0;font-size:18px}.metaLine{color:var(--mut);font-size:13px}.progress{height:8px;background:var(--surf2);border-radius:999px;overflow:hidden;border:1px solid var(--line)}.progress i{display:block;height:100%;background:var(--grad);width:0}.suggestion{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.suggestion:first-child{border-top:0}.dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex:none}.empty{padding:18px;text-align:center;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar"><div class="topRow">
+    <div class="avatar"><span id="avInit">?</span></div>
+    <div class="greet"><p class="hi" id="greet">Bom dia</p><p class="nm"><span id="userChip">—</span> · Personal <span class="areaBadge">🏋️ Portal</span></p></div>
+    <button class="iconBtn" onclick="logoutUser()" title="Sair" aria-label="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></button>
+    <button class="iconBtn" onclick="toggleTheme()" title="Tema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  </div></div>
+
+  <div class="hero"><p class="lbl">APEX · acompanhamento</p><div class="big">Visão do personal</div><div class="row"><div class="stat"><b id="heroTotal">—</b><span>alunos</span></div><div class="stat"><b id="heroAtivos">—</b><span>ativos 7d</span></div></div></div>
+
+  <div class="tabs"><button class="tabBtn on" data-tab="overview">Visão geral</button><button class="tabBtn" data-tab="students">Meus alunos</button></div>
+
+  <section id="tabOverview">
+    <div class="metricGrid"><div class="metricCard"><span>Total de alunos</span><b id="totalAlunos">—</b></div><div class="metricCard"><span>Ativos em 7 dias</span><b id="ativos7d">—</b></div></div>
+    <div class="card"><h2>🔜 Próximos treinos sugeridos</h2><div id="nextList" class="empty">Carregando…</div></div>
+  </section>
+
+  <section id="tabStudents" hidden>
+    <div class="card"><h2>👥 Meus alunos</h2><div id="studentGrid" class="studentGrid"><div class="empty">Carregando…</div></div></div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/js/core.js"></script>
+<script src="/js/personal.js"></script>
+</body>
+</html>

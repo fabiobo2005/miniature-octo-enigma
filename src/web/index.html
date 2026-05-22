@@ -140,5 +140,27 @@
 
 <script src="/js/core.js"></script>
 <script src="/js/launcher.js"></script>
+<script>
+(function(){
+  async function redirectPersonal(){
+    const stored = USER.get();
+    const id = (stored && stored.id) || localStorage.getItem('userId');
+    if (!id) return;
+    try {
+      const u = await apiRaw('GET', '/api/users/' + encodeURIComponent(id));
+      if (u && u.role === 'personal') window.location.href = '/personal.html';
+    } catch (e) { console.warn('role redirect failed', e); }
+  }
+  document.addEventListener('DOMContentLoaded', redirectPersonal);
+  if (typeof window.pickUser === 'function' && !window.pickUser.__personalRedirectWrapped) {
+    const originalPickUser = window.pickUser;
+    window.pickUser = function(id, name, avatarUrl){
+      originalPickUser(id, name, avatarUrl);
+      redirectPersonal();
+    };
+    window.pickUser.__personalRedirectWrapped = true;
+  }
+})();
+</script>
 </body>
 </html>
