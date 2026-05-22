@@ -10,7 +10,7 @@ async function makePool(): Promise<Pool> {
   const port = Number(process.env.PG_PORT || 5432);
   const database = process.env.PG_DATABASE;
   const user = process.env.PG_USER;
-  const ssl = process.env.PG_SSL === 'true' ? { rejectUnauthorized: true } : false;
+  const ssl = process.env.PG_SSL === 'true' ? { rejectUnauthorized: false } : false;
 
   if (process.env.DATABASE_URL) {
     return new Pool({
@@ -21,7 +21,7 @@ async function makePool(): Promise<Pool> {
   }
 
   if (process.env.PG_PASSWORD) {
-    return new Pool({ host, port, database, user, password: process.env.PG_PASSWORD, ssl, max: 4 });
+    return new Pool({ host, port, database, user, password: process.env.PG_PASSWORD, ssl, max: 2, keepAlive: true, idleTimeoutMillis: 30000, connectionTimeoutMillis: 30000 } as any);
   }
 
   // Azure AD token (same as src/db.ts)
@@ -43,7 +43,12 @@ async function makePool(): Promise<Pool> {
 }
 
 export async function getPool(): Promise<Pool> {
-  if (!pool) pool = await makePool();
+  if (!pool) {
+    pool = await makePool();
+    pool.on('error', (err) => {
+      console.error('[pool] idle client error:', err.message);
+    });
+  }
   return pool;
 }
 
