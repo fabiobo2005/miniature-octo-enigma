@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<title>APEX · Cadastro de Personal</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<style>
+  .signupWrap{max-width:720px;margin:0 auto;padding-top:18px}
+  .signupHero .big{font-size:34px}
+  .helpText{color:var(--mut);font-size:13px;margin:4px 0 0}
+  .charCount{text-align:right;color:var(--mut);font-size:12px;margin-top:-6px;margin-bottom:10px}
+  .msg{border-radius:14px;padding:12px 14px;margin-bottom:14px;border:1px solid var(--line);background:var(--surf2);color:var(--txt)}
+  .msg.err{border-color:rgba(217,107,122,.45);background:rgba(217,107,122,.12);color:var(--err)}
+  .msg.ok{border-color:rgba(95,181,148,.45);background:var(--pri-bg);color:var(--pri-d)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .mutedLink{color:var(--pri-d);font-weight:700;text-decoration:none}
+  .mutedLink:hover{text-decoration:underline}
+  textarea{min-height:130px;resize:vertical}
+  input[readonly]{opacity:.75;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div class="app signupWrap">
+  <div class="topbar"><div class="topRow">
+    <div class="avatar"><span>PT</span></div>
+    <div class="greet"><p class="hi" id="greet">Cadastro</p><p class="nm">Solicitação de Personal</p></div>
+    <a class="iconBtn" href="/index.html" title="Voltar" aria-label="Voltar">←</a>
+    <button class="iconBtn" type="button" onclick="toggleTheme()" title="Tema" aria-label="Alternar tema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  </div></div>
+
+  <div class="hero signupHero">
+    <p class="lbl">APEX · personal trainer</p>
+    <div class="big">Solicite sua revisão</div>
+    <p class="helpText">Preencha os dados abaixo para marcar seu usuário como personal pendente de aprovação administrativa.</p>
+  </div>
+
+  <div id="statusMessage" class="msg" hidden></div>
+
+  <section id="successPanel" class="card" hidden>
+    <h2>✅ Solicitação enviada</h2>
+    <p>Solicitação enviada. Aguarde aprovação do administrador.</p>
+    <div class="actions">
+      <a class="btn" href="/index.html">Voltar para login</a>
+    </div>
+  </section>
+
+  <form id="signupPersonalForm" class="card" novalidate>
+    <h2>🏋️ Dados profissionais</h2>
+    <div class="field">
+      <label for="name">Nome <span style="color:var(--err)">*</span></label>
+      <input id="name" name="name" type="text" autocomplete="name" required placeholder="Seu nome completo">
+    </div>
+    <div class="field">
+      <label for="email">E-mail <span style="color:var(--err)">*</span></label>
+      <input id="email" name="email" type="email" autocomplete="email" required placeholder="seu@email.com">
+    </div>
+    <div class="field">
+      <label for="specialization">Especialização <span style="color:var(--err)">*</span></label>
+      <select id="specialization" name="specialization" required>
+        <option value="">Selecione…</option>
+        <option value="Musculação">Musculação</option>
+        <option value="Crossfit">Crossfit</option>
+        <option value="Corrida">Corrida</option>
+        <option value="Funcional">Funcional</option>
+        <option value="Outro">Outro</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="bio">Bio <span style="color:var(--err)">*</span></label>
+      <textarea id="bio" name="bio" maxlength="500" required placeholder="Conte brevemente sua experiência, certificações e foco de atuação."></textarea>
+    </div>
+    <div class="charCount"><span id="bioCount">0</span>/500</div>
+    <button id="submitBtn" class="btn full" type="submit">Solicitar cadastro como Personal</button>
+    <p class="helpText" style="text-align:center;margin-top:14px">Se você caiu aqui por engano, pode <a class="mutedLink" href="/index.html">voltar para a triagem padrão</a>.</p>
+  </form>
+</div>
+<div class="toast" id="toast"></div>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/core.js"></script>
+<script src="/js/signup-personal.js"></script>
+</body>
+</html>
