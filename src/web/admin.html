@@ -29,6 +29,7 @@
     <button class="tabBtn on" data-tab="overview" type="button">Visão geral</button>
     <button class="tabBtn" data-tab="pending" type="button">Aprovações</button>
     <button class="tabBtn" data-tab="users" type="button">Usuários</button>
+    <button class="tabBtn" data-tab="leads" type="button">Leads</button>
     <button class="tabBtn" data-tab="audit" type="button">Auditoria</button>
   </div>
 
@@ -62,6 +63,17 @@
 
   <section id="tabAudit" hidden>
     <div class="card"><h2>🧾 Auditoria <span class="sub">últimos 100</span></h2><div id="auditTable" class="tableWrap"><div class="empty">Carregando…</div></div></div>
+  </section>
+
+  <section id="tabLeads" hidden>
+    <div class="card">
+      <h2>📨 Leads <span class="sub">contatos da landing</span></h2>
+      <div class="toolbar">
+        <div class="field"><label for="leadFilterStatus">Status</label><select id="leadFilterStatus"><option value="all">Todos</option><option value="pending" selected>Pendentes</option><option value="contacted">Contatados</option></select></div>
+        <div class="field"><label for="leadFilterSearch">Busca</label><input id="leadFilterSearch" type="search" placeholder="Nome, email ou mensagem"></div>
+      </div>
+      <div id="leadsTable" class="tableWrap"><div class="empty">Carregando…</div></div>
+    </div>
   </section>
 </div>
 <div class="toast" id="toast"></div>

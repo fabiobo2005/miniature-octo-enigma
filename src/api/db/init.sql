@@ -629,3 +629,25 @@ BEGIN
     INSERT INTO app.schema_migrations(version) VALUES ('v16-leads');
   END IF;
 END $mig16$;
+
+-- ============================================================================
+-- MIGRATION v17-profession
+-- Plataforma expandida para profissionais da saúde (nutri, fisio, personal, etc.).
+-- ============================================================================
+DO $mig17$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='v17-profession') THEN
+    ALTER TABLE app."user" ADD COLUMN IF NOT EXISTS profession TEXT;
+    ALTER TABLE app.lead   ADD COLUMN IF NOT EXISTS profession TEXT;
+    ALTER TABLE app.lead   ADD COLUMN IF NOT EXISTS contacted_at TIMESTAMPTZ;
+    ALTER TABLE app.lead   ADD COLUMN IF NOT EXISTS notes TEXT;
+    CREATE INDEX IF NOT EXISTS idx_user_profession ON app."user"(profession) WHERE profession IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_lead_contacted ON app.lead(contacted_at);
+
+    UPDATE app."user"
+       SET profession = 'personal_trainer'
+     WHERE role = 'personal' AND profession IS NULL;
+
+    INSERT INTO app.schema_migrations(version) VALUES ('v17-profession');
+  END IF;
+END $mig17$;

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<title>APEX · Cadastro de Profissional</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<style>
+  .signupWrap{max-width:720px;margin:0 auto;padding-top:18px}
+  .signupHero .big{font-size:34px}
+  .helpText{color:var(--mut);font-size:13px;margin:4px 0 0}
+  .charCount{text-align:right;color:var(--mut);font-size:12px;margin-top:-6px;margin-bottom:10px}
+  .msg{border-radius:14px;padding:12px 14px;margin-bottom:14px;border:1px solid var(--line);background:var(--surf2);color:var(--txt)}
+  .msg.err{border-color:rgba(217,107,122,.45);background:rgba(217,107,122,.12);color:var(--err)}
+  .msg.ok{border-color:rgba(95,181,148,.45);background:var(--pri-bg);color:var(--pri-d)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .mutedLink{color:var(--pri-d);font-weight:700;text-decoration:none}
+  .mutedLink:hover{text-decoration:underline}
+  textarea{min-height:130px;resize:vertical}
+  input[readonly]{opacity:.75;cursor:not-allowed}
+  .infoBox{background:#e7f3ec;border:1px solid #b5d9c1;border-radius:10px;padding:12px 14px;font-size:13.5px;color:#2f7559;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="app signupWrap">
+  <div class="topbar"><div class="topRow">
+    <div class="avatar"><span>PR</span></div>
+    <div class="greet"><p class="hi" id="greet">Cadastro</p><p class="nm">Profissional da saúde</p></div>
+    <a class="iconBtn" href="/" title="Voltar" aria-label="Voltar">←</a>
+    <button class="iconBtn" type="button" onclick="toggleTheme && toggleTheme()" title="Tema" aria-label="Alternar tema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+  </div></div>
+
+  <div class="hero signupHero">
+    <p class="lbl">APEX · profissionais da saúde</p>
+    <div class="big">Cadastre-se como profissional</div>
+    <p class="helpText">Sua conta será criada como pendente e revisada por um administrador antes da ativação.</p>
+  </div>
+
+  <div class="infoBox">
+    💡 <strong>Você precisará entrar com sua conta Microsoft</strong> para concluir o cadastro. Ao logar, seus dados (nome/email) serão preenchidos automaticamente.
+  </div>
+
+  <div id="statusMessage" class="msg" hidden></div>
+
+  <section id="successPanel" class="card" hidden>
+    <h2>✅ Solicitação enviada</h2>
+    <p>Sua solicitação foi enviada. Aguarde a aprovação do administrador — você será notificado por email.</p>
+    <div class="actions">
+      <a class="btn" href="/">Voltar para o início</a>
+    </div>
+  </section>
+
+  <form id="signupPersonalForm" class="card" novalidate>
+    <h2>📋 Dados profissionais</h2>
+    <div class="field">
+      <label for="name">Nome <span style="color:var(--err)">*</span></label>
+      <input id="name" name="name" type="text" autocomplete="name" required placeholder="Seu nome completo">
+    </div>
+    <div class="field">
+      <label for="email">E-mail <span style="color:var(--err)">*</span></label>
+      <input id="email" name="email" type="email" autocomplete="email" required placeholder="seu@email.com">
+    </div>
+    <div class="field">
+      <label for="profession">Profissão <span style="color:var(--err)">*</span></label>
+      <select id="profession" name="profession" required>
+        <option value="">Selecione…</option>
+        <option value="personal_trainer">Personal Trainer</option>
+        <option value="nutricionista">Nutricionista</option>
+        <option value="fisioterapeuta">Fisioterapeuta</option>
+        <option value="psicologo">Psicólogo</option>
+        <option value="medico">Médico</option>
+        <option value="educador_fisico">Educador Físico</option>
+        <option value="outro">Outro</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="specialization">Área de atuação / especialização <span style="color:var(--err)">*</span></label>
+      <input id="specialization" name="specialization" type="text" required maxlength="200" placeholder="Ex: Hipertrofia, Nutrição esportiva, Reabilitação ortopédica…">
+    </div>
+    <div class="field">
+      <label for="bio">Bio <span style="color:var(--err)">*</span></label>
+      <textarea id="bio" name="bio" maxlength="500" required placeholder="Conte brevemente sua experiência, certificações e foco de atuação."></textarea>
+    </div>
+    <div class="charCount"><span id="bioCount">0</span>/500</div>
+    <button id="submitBtn" class="btn full" type="submit">Solicitar cadastro como Profissional</button>
+    <p class="helpText" style="text-align:center;margin-top:14px">Já tem conta? <a class="mutedLink" href="/app.html">Entrar</a>.</p>
+  </form>
+</div>
+<div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/core.js"></script>
+<script src="/js/signup-personal.js"></script>
+</body>
+</html>

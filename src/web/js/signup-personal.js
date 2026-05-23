@@ -126,6 +126,7 @@
         name: nameInput.value.trim(),
         email: emailInput.value.trim(),
         specialization: document.getElementById('specialization').value,
+        profession: (document.getElementById('profession') && document.getElementById('profession').value) || 'personal_trainer',
         bio: bio.value.trim(),
         entra_object_id: currentClaims && currentClaims.oid ? currentClaims.oid : null
       };

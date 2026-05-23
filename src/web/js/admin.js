@@ -141,6 +141,73 @@ async function loadAudit(){
   renderAudit();
 }
 
+const PROFESSION_LABELS = {
+  personal_trainer: 'Personal Trainer',
+  nutricionista: 'Nutricionista',
+  fisioterapeuta: 'Fisioterapeuta',
+  psicologo: 'Psicólogo',
+  medico: 'Médico',
+  educador_fisico: 'Educador Físico',
+  outro: 'Outro'
+};
+function profLabel(p){ return PROFESSION_LABELS[p] || (p ? p : '—'); }
+
+function renderLeads(){
+  const box = $('#leadsTable');
+  const search = ($('#leadFilterSearch')?.value || '').trim().toLowerCase();
+  const rows = (ADMIN_STATE.leads || []).filter(l => {
+    if (!search) return true;
+    return [l.name, l.email, l.message, l.phone].some(v => String(v||'').toLowerCase().includes(search));
+  });
+  if (!rows.length) { box.innerHTML = '<div class="empty">Nenhum lead encontrado.</div>'; return; }
+  box.innerHTML = `<table>
+    <thead><tr><th>Data</th><th>Nome / Contato</th><th>Interesse</th><th>Profissão</th><th>Mensagem</th><th>Status</th><th>Ações</th></tr></thead>
+    <tbody>${rows.map(l => `
+      <tr>
+        <td>${escapeHtml(fmtDateTime(l.created_at))}</td>
+        <td>
+          <b>${escapeHtml(l.name)}</b><br>
+          <span class="metaLine">${escapeHtml(l.email)}${l.phone ? ' · ' + escapeHtml(l.phone) : ''}</span>
+        </td>
+        <td><span class="pill">${escapeHtml(l.role_interest || '—')}</span></td>
+        <td>${escapeHtml(profLabel(l.profession))}</td>
+        <td class="compactJson">${escapeHtml(l.message || '—')}</td>
+        <td>${l.contacted_at
+            ? `<span class="pill ok">Contatado</span><br><span class="metaLine">${escapeHtml(fmtDateTime(l.contacted_at))}</span>`
+            : '<span class="pill warn">Pendente</span>'}</td>
+        <td><div class="rowActions">
+          ${l.contacted_at
+            ? `<button class="btn" data-action="lead-reset" data-id="${escapeHtml(l.id)}">Reabrir</button>`
+            : `<button class="btn" data-action="lead-contact" data-id="${escapeHtml(l.id)}">Marcar contatado</button>`}
+          <button class="btn danger" data-action="lead-delete" data-id="${escapeHtml(l.id)}">Excluir</button>
+        </div></td>
+      </tr>`).join('')}</tbody></table>`;
+}
+
+async function loadLeads(){
+  const status = $('#leadFilterStatus')?.value || 'pending';
+  const data = await adminApi('GET', `/api/admin/leads?status=${encodeURIComponent(status)}&limit=300`);
+  ADMIN_STATE.leads = data.leads || [];
+  renderLeads();
+}
+
+async function leadAction(action, id){
+  if (action === 'lead-contact') {
+    const notes = prompt('Notas sobre este contato (opcional):', '') || null;
+    await adminApi('POST', `/api/admin/leads/${encodeURIComponent(id)}/contact`, { notes });
+    toast('Lead marcado como contatado.');
+  } else if (action === 'lead-reset') {
+    if (!confirm('Reabrir este lead?')) return;
+    await adminApi('POST', `/api/admin/leads/${encodeURIComponent(id)}/reset`);
+    toast('Lead reaberto.');
+  } else if (action === 'lead-delete') {
+    if (!confirm('Excluir este lead permanentemente?')) return;
+    await adminApi('DELETE', `/api/admin/leads/${encodeURIComponent(id)}`);
+    toast('Lead excluído.');
+  }
+  await loadLeads();
+}
+
 async function approve(id, role){
   if (!confirm(`Aprovar este usuário como ${roleLabel(role)}?`)) return;
   await adminApi('POST', `/api/admin/users/${encodeURIComponent(id)}/approve`, { role });
@@ -185,10 +252,12 @@ function bindTabs(){
     $('#tabPending').hidden = tab !== 'pending';
     $('#tabUsers').hidden = tab !== 'users';
     $('#tabAudit').hidden = tab !== 'audit';
+    const tl = $('#tabLeads'); if (tl) tl.hidden = tab !== 'leads';
     try {
       if (tab === 'pending') await loadPending();
       if (tab === 'users') await loadUsers();
       if (tab === 'audit') await loadAudit();
+      if (tab === 'leads') await loadLeads();
     } catch (e) { toast('Erro: ' + e.message, true); }
   }));
 }
@@ -197,11 +266,17 @@ function bindControls(){
   $('#filterStatus').addEventListener('change', () => loadUsers().catch(e => toast('Erro: ' + e.message, true)));
   $('#filterRole').addEventListener('change', () => loadUsers().catch(e => toast('Erro: ' + e.message, true)));
   $('#filterSearch').addEventListener('input', renderUsers);
+  const lfs = $('#leadFilterStatus'); if (lfs) lfs.addEventListener('change', () => loadLeads().catch(e => toast('Erro: ' + e.message, true)));
+  const lfx = $('#leadFilterSearch'); if (lfx) lfx.addEventListener('input', renderLeads);
   document.body.addEventListener('click', e => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const { action, id, role } = btn.dataset;
-    const run = action === 'approve' ? approve(id, role) : action === 'reject' ? reject(id) : action === 'disable' || action === 'enable' ? toggleStatus(id, action) : null;
+    let run = null;
+    if (action === 'approve') run = approve(id, role);
+    else if (action === 'reject') run = reject(id);
+    else if (action === 'disable' || action === 'enable') run = toggleStatus(id, action);
+    else if (action === 'lead-contact' || action === 'lead-reset' || action === 'lead-delete') run = leadAction(action, id);
     if (run) run.catch(err => toast('Erro: ' + err.message, true));
   });
   document.body.addEventListener('change', e => {

@@ -176,6 +176,66 @@ adminRouter.get('/audit', requireAdmin, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// ============ LEADS ============
+adminRouter.get('/leads', requireAdmin, async (req, res, next) => {
+  try {
+    const status = String(req.query.status || 'all');
+    const limit = Math.min(Math.max(Number(req.query.limit || 200), 1), 500);
+    const where = status === 'pending' ? 'WHERE contacted_at IS NULL'
+                : status === 'contacted' ? 'WHERE contacted_at IS NOT NULL'
+                : '';
+    const rows = await withClient(async c => (await c.query(
+      `SELECT id, name, email, phone, role_interest, profession, message, source, contacted_at, notes, created_at
+         FROM app.lead
+         ${where}
+        ORDER BY created_at DESC
+        LIMIT $1`,
+      [limit]
+    )).rows);
+    res.json({ leads: rows });
+  } catch (e) { next(e); }
+});
+
+adminRouter.post('/leads/:id/contact', requireAdmin, async (req, res, next) => {
+  try {
+    const notes = typeof req.body?.notes === 'string' ? req.body.notes.slice(0, 2000) : null;
+    const row = await withClient(async c => (await c.query(
+      `UPDATE app.lead
+          SET contacted_at = COALESCE(contacted_at, now()),
+              notes = COALESCE($2, notes)
+        WHERE id = $1
+        RETURNING id, contacted_at, notes`,
+      [req.params.id, notes]
+    )).rows[0]);
+    if (!row) return res.status(404).json({ error: 'lead not found' });
+    await audit((req as any).user?.id || '00000000-0000-0000-0000-000000000000', 'lead.contact', 'lead', req.params.id, { notes });
+    res.json(row);
+  } catch (e) { next(e); }
+});
+
+adminRouter.post('/leads/:id/reset', requireAdmin, async (req, res, next) => {
+  try {
+    const row = await withClient(async c => (await c.query(
+      `UPDATE app.lead SET contacted_at = NULL WHERE id = $1
+        RETURNING id, contacted_at`,
+      [req.params.id]
+    )).rows[0]);
+    if (!row) return res.status(404).json({ error: 'lead not found' });
+    res.json(row);
+  } catch (e) { next(e); }
+});
+
+adminRouter.delete('/leads/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const row = await withClient(async c => (await c.query(
+      `DELETE FROM app.lead WHERE id=$1 RETURNING id`,
+      [req.params.id]
+    )).rows[0]);
+    if (!row) return res.status(404).json({ error: 'lead not found' });
+    res.status(204).end();
+  } catch (e) { next(e); }
+});
+
 async function setUserStatus(id: string, status: 'active' | 'disabled') {
   return await withClient(async c => (await c.query(
     `UPDATE app."user"
