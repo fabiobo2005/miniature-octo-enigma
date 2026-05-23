@@ -1,0 +1,7 @@
+GRANT USAGE ON SCHEMA app TO "id-apex-wjmlu42txmyeo";
+GRANT SELECT, INSERT, UPDATE, DELETE ON app.lead TO "id-apex-wjmlu42txmyeo";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO "id-apex-wjmlu42txmyeo";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO "id-apex-wjmlu42txmyeo";
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "id-apex-wjmlu42txmyeo";
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO "id-apex-wjmlu42txmyeo";
+\echo Granted lead + app table access to UAI

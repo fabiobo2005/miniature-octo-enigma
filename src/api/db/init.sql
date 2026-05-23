@@ -603,3 +603,29 @@ BEGIN
     INSERT INTO app.schema_migrations(version) VALUES ('v15-entra-auth');
   END IF;
 END $mig15$;
+
+-- ============================================================================
+-- MIGRATION v16-leads
+-- Captura de leads da landing page pública (pré-cadastro sem auth Entra).
+-- ============================================================================
+DO $mig16$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app.schema_migrations WHERE version='v16-leads') THEN
+    CREATE TABLE IF NOT EXISTS app.lead (
+      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name          TEXT NOT NULL,
+      email         TEXT NOT NULL,
+      phone         TEXT,
+      role_interest TEXT NOT NULL CHECK (role_interest IN ('aluno','personal','outro')),
+      message       TEXT,
+      source        TEXT,
+      ip            TEXT,
+      user_agent    TEXT,
+      converted_user_id UUID REFERENCES app."user"(id) ON DELETE SET NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_lead_created ON app.lead(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_lead_email ON app.lead(lower(email));
+    INSERT INTO app.schema_migrations(version) VALUES ('v16-leads');
+  END IF;
+END $mig16$;

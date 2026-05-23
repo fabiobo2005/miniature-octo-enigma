@@ -41,6 +41,11 @@ $env:PGPASSWORD = (az account get-access-token --resource-type oss-rdbms --query
     -c "SELECT pgaadauth_create_principal('$uaiName'::text, false, false);" 2>&1 | Out-Host
 & psql "host=$($s.newPgFqdn) port=5432 dbname=$($s.newPgDb) user=$($s.deployerUpn) sslmode=require" `
     -c "GRANT CONNECT ON DATABASE $($s.newPgDb) TO `"$uaiName`"; GRANT CREATE ON DATABASE $($s.newPgDb) TO `"$uaiName`"; GRANT CREATE ON SCHEMA public TO `"$uaiName`";" 2>&1 | Out-Host
+
+# Garante GRANTs no schema app — necessário para tabelas criadas por migrations
+# que rodam como o deployer (ex: lead). Sem isto, a UAI recebe "permission denied".
+& psql "host=$($s.newPgFqdn) port=5432 dbname=$($s.newPgDb) user=$($s.deployerUpn) sslmode=require" `
+    -c "GRANT USAGE ON SCHEMA app TO `"$uaiName`"; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO `"$uaiName`"; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO `"$uaiName`"; ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO `"$uaiName`"; ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO `"$uaiName`";" 2>&1 | Out-Host
 $env:PGPASSWORD=$null
 
 az postgres flexible-server firewall-rule delete `

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#7BC4A4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>APEX · Início</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/app.css">
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/service-worker.js').catch(console.warn));}</script>
+<style>
+  .authSplash{min-height:80vh;display:grid;place-items:center;text-align:center;padding:24px}
+  .spinner{width:44px;height:44px;border:4px solid var(--line);border-top-color:var(--pri);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+  .authSplash h1{margin:0 0 6px;font-size:24px;letter-spacing:-.5px}
+  .authSplash p{margin:0;color:var(--mut)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app authSplash">
+  <section>
+    <div class="spinner" aria-hidden="true"></div>
+    <h1>Entrando no APEX…</h1>
+    <p>Aguarde enquanto validamos sua conta.</p>
+  </section>
+</div>
+<script src="/js/auth.js"></script>
+<script src="/js/core.js"></script>
+<script>
+apexAuth.initializeMsal().then(() => msalInstance.handleRedirectPromise()).then(async () => {
+  const acc = msalInstance.getAllAccounts()[0];
+  if (!acc) { return ensureLogin(); }
+  msalInstance.setActiveAccount(acc);
+  const me = await fetch('/api/admin/me').then(r=>r.json());
+  if (me?.id) USER.set(me);
+  if (me.status === 'pending') { location.href = '/pending.html'; return; }
+  if (me.status === 'disabled') { alert('Conta desabilitada'); await logout(); return; }
+  if (me.role === 'admin') { location.href = '/admin.html'; return; }
+  if (me.role === 'personal') { location.href = '/personal.html'; return; }
+  location.href = '/treinos.html';
+}).catch(err => {
+  console.error('auth bootstrap failed', err);
+  alert('Não foi possível validar seu login. Tente novamente.');
+});
+</script>
+</body>
+</html>

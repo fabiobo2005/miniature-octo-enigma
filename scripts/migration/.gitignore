@@ -1,2 +1,4 @@
 .migration-state.json
 backups/
+
+.app-spa.txt
