@@ -7,7 +7,7 @@ APEX Cloud é uma PWA de acompanhamento de recomposição corporal com API REST 
 - **Treinos:** catálogo de programas, prescrição, execução de sessões, cronômetro/beeps e histórico de treino.
 - **Portal do Personal:** visão de carteira, métricas de aderência, drill-down de alunos, atribuição/criação de programas e exportação CSV.
 
-URL de produção: <https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io>
+URL de produção: <https://ca-apex-web.calmbush-08b221f9.centralus.azurecontainerapps.io>
 
 ## Stack
 

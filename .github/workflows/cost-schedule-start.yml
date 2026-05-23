@@ -12,7 +12,7 @@ permissions:
 
 env:
   RG: rg-apex-dev
-  PG_NAME: psql-apex-ydcoajutfl3he
+  PG_NAME: psql-apex-wjmlu42txmyeo
   ACA_API: ca-apex-api
   ACA_WEB: ca-apex-web
   ACA_MIN_REPLICAS: '1'
@@ -65,7 +65,7 @@ jobs:
           sleep 20
           for i in {1..6}; do
             HTTP=$(curl -sk -o /dev/null -w "%{http_code}" \
-              "https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/healthz" || true)
+              "https://ca-apex-web.calmbush-08b221f9.centralus.azurecontainerapps.io/healthz" || true)
             echo "Healthz attempt $i: $HTTP"
             [ "$HTTP" = "200" ] && exit 0
             sleep 15

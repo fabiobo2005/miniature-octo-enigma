@@ -18,7 +18,7 @@ Em UTC:
 
 | Recurso | Tipo | Mecanismo |
 |---|---|---|
-| `psql-apex-ydcoajutfl3he` | Postgres Flexible | `az postgres flexible-server stop/start` |
+| `psql-apex-wjmlu42txmyeo` | Postgres Flexible | `az postgres flexible-server stop/start` |
 | `ca-apex-api` | Container App | `min-replicas 0 / max-replicas 0` (efetivamente parado) |
 | `ca-apex-web` | Container App | idem |
 
@@ -71,7 +71,7 @@ gh workflow run "Cost · Stop (20:00 BRT, Mon-Fri)"
 ### Verificar estado
 
 ```bash
-az postgres flexible-server show -g rg-apex-dev -n psql-apex-ydcoajutfl3he --query state -o tsv
+az postgres flexible-server show -g rg-apex-dev -n psql-apex-wjmlu42txmyeo --query state -o tsv
 az containerapp show -g rg-apex-dev -n ca-apex-api  --query "properties.template.scale" -o json
 az containerapp show -g rg-apex-dev -n ca-apex-web  --query "properties.template.scale" -o json
 ```

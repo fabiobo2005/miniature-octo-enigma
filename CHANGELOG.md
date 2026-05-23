@@ -187,7 +187,7 @@ Formato: `## vX.Y · YYYY-MM-DD · título` — depois sub-seções (Backend / F
 - App registration `apex-github-oidc` com federated credential para GitHub Actions
   (sem segredos de senha). Role: Contributor em `rg-apex-dev`.
 - Workflow `cost-schedule-stop.yml` (cron `0 23 * * 1-5` UTC = 20:00 BRT seg-sex):
-  - Para `psql-apex-ydcoajutfl3he`
+  - Para `psql-apex-wjmlu42txmyeo`
   - Escala `ca-apex-api` e `ca-apex-web` para 0/0 réplicas
 - Workflow `cost-schedule-start.yml` (cron `0 11 * * 1-5` UTC = 08:00 BRT seg-sex):
   - Inicia o Postgres e aguarda estado `Ready`
@@ -285,10 +285,10 @@ injetado automaticamente em todas as chamadas de API pelo helper `api()` do `cor
 - Schema é auto-aplicado pela API no startup (`ensureSchema`). Migration `v3-multiuser`
   só roda **uma vez** (controle via `app.schema_migrations`).
 - Deploy: `azd deploy` (api + web). RG: `rg-apex-dev` (Central US). FQDN PG:
-  `psql-apex-ydcoajutfl3he.postgres.database.azure.com`.
+  `psql-apex-wjmlu42txmyeo.postgres.database.azure.com`.
 
 ### Como retomar do zero (status para próxima sessão)
-1. URL: https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io/
+1. URL: https://ca-apex-web.calmbush-08b221f9.centralus.azurecontainerapps.io/
 2. DB **zerada** (sem perfis, sem dados). Primeira ação na UI: clicar em "Novo perfil".
 3. Após criar perfil, é redirecionado ao hub. Cada área pede dados iniciais via overlay.
 4. `azd env get-values` em `apex-cloud/` mostra todas as vars de ambiente.

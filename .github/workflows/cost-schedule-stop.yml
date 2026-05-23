@@ -12,7 +12,7 @@ permissions:
 
 env:
   RG: rg-apex-dev
-  PG_NAME: psql-apex-ydcoajutfl3he
+  PG_NAME: psql-apex-wjmlu42txmyeo
   ACA_API: ca-apex-api
   ACA_WEB: ca-apex-web
 

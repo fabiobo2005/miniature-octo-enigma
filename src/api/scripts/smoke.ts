@@ -6,7 +6,7 @@ type CheckResult = {
   detail: string;
 };
 
-const DEFAULT_BASE_URL = 'https://ca-apex-web.jollyglacier-b0e801ab.centralus.azurecontainerapps.io';
+const DEFAULT_BASE_URL = 'https://ca-apex-web.calmbush-08b221f9.centralus.azurecontainerapps.io';
 const baseUrl = (process.env.BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
 
 function icon(result: CheckResult): string {
