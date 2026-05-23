@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import { withClient } from '../db';
 
-const DEFAULT_TENANT_ID = '87cc550f-0777-49cd-a8c0-452328e84b0b';
-const DEFAULT_CLIENT_ID = '9d1fef36-f1ad-4889-9243-714f426e7d86';
+const DEFAULT_TENANT_ID = '5537a00c-2813-4c5c-8422-aa1d3ce1d4ec';
+const DEFAULT_CLIENT_ID = '23dfd1f2-389d-4402-ac80-3dad256b7231';
 
 const TENANT_ID = process.env.ENTRA_TENANT_ID || DEFAULT_TENANT_ID;
 const CLIENT_ID = process.env.ENTRA_CLIENT_ID || DEFAULT_CLIENT_ID;
